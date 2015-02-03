@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""JSSUsedFilesReport.py
+"""JSSUnusedFilesCleaner.py
 
 Find all unused packages and scripts on a JSS and offer to remove them.
 
