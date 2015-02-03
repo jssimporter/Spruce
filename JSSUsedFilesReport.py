@@ -53,7 +53,9 @@ DESCRIPTION = ("Report on all unused packages and scripts on a JSS. "
                "included!).\nIf you would like to review and edit the "
                "list, use the '--report' option to output the report "
                "only; then use the '--remove' option with a file"
-               "listing those packages and scripts you wish to remove.")
+               "listing those packages and scripts you wish to remove.
+               "Uses configured AutoPkg/JSSImporter settings first; "
+               "Then falls back to python-jss settings.")
 
 __version__ = '0.1.0'
 
@@ -139,7 +141,11 @@ def configure_jss(env):
     auth_pass = env["API_PASSWORD"]
     ssl_verify = env.get("JSS_VERIFY_SSL", True)
     suppress_warnings = env.get("JSS_SUPPRESS_WARNINGS", False)
-    repos = env["JSS_REPOS"]
+    # No get method for Plist.
+    if "JSS_REPOS" in env.keys():
+        repos = env["JSS_REPOS"]
+    else:
+        repos = None
     j = jss.JSS(url=repo_url, user=auth_user, password=auth_pass,
                 ssl_verify=ssl_verify, repo_prefs=repos,
                 suppress_warnings=suppress_warnings)
@@ -160,14 +166,13 @@ def map_python_jss_env(env):
 
 def remove(j, items):
     """Remove packages and scripts from a JSS as passed in iterable
-    items.
+    'items'.
 
     """
     for item in items:
         # Remove the JSS Object for item:
         if os.path.splitext(item)[1].upper() in ['.PKG', '.DMG']:
             j.Package(item).delete()
-
         else:
             # Must be a script.
             j.Script(item).delete()
@@ -229,7 +234,7 @@ def report_clean(j, verbose=False):
 
 def load_file(filename):
     """Given a filename to a file, comprised of a single package or
-    script per line, return a set of those objects.
+    script per line, return a list of those objects.
 
     The file may contain comments and WS. Any line starting with a '#',
     a tab, newline, or a blank space will be ignored.
@@ -288,7 +293,8 @@ def main():
     parser = build_argparser()
     args = parser.parse_args()
 
-    # Get AutoPkg configuration settings for JSSImporter.
+    # Get AutoPkg configuration settings for JSSImporter, and barring
+    # that, get python-jss settings.
     if os.path.exists(os.path.expanduser(AUTOPKG_PREFERENCES)):
         autopkg_env = Plist(AUTOPKG_PREFERENCES)
         j = configure_jss(autopkg_env)
