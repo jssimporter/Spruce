@@ -48,12 +48,12 @@ AUTOPKG_PREFERENCES = '~/Library/Preferences/com.github.autopkg.plist'
 PYTHON_JSS_PREFERENCES = \
     '~/Library/Preferences/com.github.sheagcraig.python-jss.plist'
 DESCRIPTION = ("Report on all unused packages and scripts on a JSS. "
-               "Optionally, remove them. Use the '--report_clean'"
+               "Optionally, remove them. Use the '--report_clean' "
                "option to report and remove in one go (emergency prompt "
                "included!).\nIf you would like to review and edit the "
                "list, use the '--report' option to output the report "
-               "only; then use the '--remove' option with a file"
-               "listing those packages and scripts you wish to remove.
+               "only; then use the '--remove' option with a file "
+               "listing those packages and scripts you wish to remove. "
                "Uses configured AutoPkg/JSSImporter settings first; "
                "Then falls back to python-jss settings.")
 
