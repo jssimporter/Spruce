@@ -3,7 +3,7 @@
 Spruce
 =====================
 Over time, and, especially with the use of AutoPkg, your JSS has probably
-accumlated some cruft: piles of test scripts and out-of-date Chrome updates,
+accumulated some cruft: piles of test scripts and out-of-date Chrome updates,
 for example. Spruce looks for packages and scripts that have no current
 usage in any policies. 
 
