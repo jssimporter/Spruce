@@ -47,8 +47,8 @@ REQUIRED_PYTHON_JSS_VERSION = StrictVersion('0.5.5')
 # Globals
 # Edit these if you want to change their default values.
 AUTOPKG_PREFERENCES = '~/Library/Preferences/com.github.autopkg.plist'
-PYTHON_JSS_PREFERENCES = \
-    '~/Library/Preferences/com.github.sheagcraig.python-jss.plist'
+PYTHON_JSS_PREFERENCES = (
+    '~/Library/Preferences/com.github.sheagcraig.python-jss.plist')
 DESCRIPTION = ("Report on all unused packages and scripts on a JSS. "
                "Optionally, remove them. Use the '--report_clean' "
                "option to report and remove in one go (emergency prompt "
@@ -104,13 +104,13 @@ class Plist(dict):
         if not os.path.isfile(path):
             raise Exception("File does not exist: %s" % path)
         # pylint: disable=unused-variable
-        info, pformat, error = \
+        info, pformat, error = (
             NSPropertyListSerialization.propertyListWithData_options_format_error_(
                 NSData.dataWithContentsOfFile_(path),
                 NSPropertyListMutableContainers,
                 None,
                 None
-            )
+            ))
         # pylint: enable=unused-variable
         if error:
             raise Exception("Can't read %s: %s" % (path, error))
