@@ -38,16 +38,16 @@ import jss
 try:
     from jss import __version__ as PYTHON_JSS_VERSION
 except ImportError:
-    PYTHON_JSS_VERSION = '0.0.0'
+    PYTHON_JSS_VERSION = "0.0.0"
 
-REQUIRED_PYTHON_JSS_VERSION = StrictVersion('0.5.5')
+REQUIRED_PYTHON_JSS_VERSION = StrictVersion("0.5.5")
 
 
 # Globals
 # Edit these if you want to change their default values.
-AUTOPKG_PREFERENCES = '~/Library/Preferences/com.github.autopkg.plist'
+AUTOPKG_PREFERENCES = "~/Library/Preferences/com.github.autopkg.plist"
 PYTHON_JSS_PREFERENCES = (
-    '~/Library/Preferences/com.github.sheagcraig.python-jss.plist')
+    "~/Library/Preferences/com.github.sheagcraig.python-jss.plist")
 DESCRIPTION = ("Report on all unused packages and scripts on a JSS. "
                "Optionally, remove them. Use the '--report_clean' "
                "option to report and remove in one go (emergency prompt "
@@ -58,7 +58,7 @@ DESCRIPTION = ("Report on all unused packages and scripts on a JSS. "
                "Uses configured AutoPkg/JSSImporter settings first; "
                "Then falls back to python-jss settings.")
 
-__version__ = '0.1.0'
+__version__ = "0.1.0"
 
 
 class Error(Exception):
@@ -167,12 +167,12 @@ def configure_jss(env):
 
 def map_python_jss_env(env):
     """Convert python-jss preferences to JSSImporter preferences."""
-    env['JSS_URL'] = env['jss_url']
-    env['API_USERNAME'] = env["jss_user"]
-    env['API_PASSWORD'] = env["jss_pass"]
-    env['JSS_VERIFY_SSL'] = env.get("ssl_verify", True)
-    env['JSS_SUPPRESS_WARNINGS'] = env.get("suppress_warnings", False)
-    env['JSS_REPOS'] = env.get("repos")
+    env["JSS_URL"] = env["jss_url"]
+    env["API_USERNAME"] = env["jss_user"]
+    env["API_PASSWORD"] = env["jss_pass"]
+    env["JSS_VERIFY_SSL"] = env.get("ssl_verify", True)
+    env["JSS_SUPPRESS_WARNINGS"] = env.get("suppress_warnings", False)
+    env["JSS_REPOS"] = env.get("repos")
 
     return env
 
@@ -186,7 +186,7 @@ def remove(j, items):
     """
     for item in items:
         # Remove the JSS Object for item:
-        if os.path.splitext(item)[1].upper() in ['.PKG', '.DMG']:
+        if os.path.splitext(item)[1].upper() in [".PKG", ".DMG"]:
             j.Package(item).delete()
         else:
             # Must be a script.
@@ -204,13 +204,13 @@ def report(j, verbose=False):
     the difference with a set of all packages and scripts.
     """
     all_policies = j.Policy().retrieve_all()
-    all_packages = {package['name'] for package in j.Package()}
-    all_scripts = {script['name'] for script in j.Script()}
+    all_packages = {package["name"] for package in j.Package()}
+    all_scripts = {script["name"] for script in j.Script()}
     used_packages = {package.text for policy in all_policies for
                      package in policy.findall(
-                         'package_configuration/packages/package/name')}
+                         "package_configuration/packages/package/name")}
     used_scripts = {script.text for policy in all_policies for
-                    script in policy.findall('scripts/script/name')}
+                    script in policy.findall("scripts/script/name")}
 
     unused_packages = all_packages.difference(used_packages)
     unused_scripts = all_scripts.difference(used_scripts)
@@ -238,13 +238,13 @@ def report_clean(j, verbose=False):
     packages.
     """
     unused_packages, unused_scripts = report(j, verbose)
-    response = raw_input('Do you want to remove these unused packages? (Y|N) ')
-    if response.upper() == 'Y':
+    response = raw_input("Do you want to remove these unused packages? (Y|N) ")
+    if response.upper() == "Y":
         remove(j, unused_packages)
     else:
         print "Skipping package removal."
-    response = raw_input('Do you want to remove these unused scripts? (Y|N) ')
-    if response.upper() == 'Y':
+    response = raw_input("Do you want to remove these unused scripts? (Y|N) ")
+    if response.upper() == "Y":
         remove(j, unused_scripts)
     else:
         print "Skipping script removal."
@@ -264,9 +264,9 @@ def load_removal_file(filename):
     Returns:
         A set of the files and scripts to remove.
     """
-    with open(os.path.expanduser(filename), 'r') as ifile:
-        result_set = [line.rstrip('\n') for line in ifile if not
-                      line.startswith((' ', '#', '\t', '\n'))]
+    with open(os.path.expanduser(filename), "r") as ifile:
+        result_set = [line.rstrip("\n") for line in ifile if not
+                      line.startswith((" ", "#", "\t", "\n"))]
     return result_set
 
 
@@ -276,31 +276,31 @@ def output(data_set):
     Args:
         data_set: Tuple of (heading, set or list data)
     """
-    print 10 * '#' + ' %s:' % data_set[0]
+    print 10 * "#" + " %s:" % data_set[0]
     for line in sorted(data_set[1]):
         print line
 
-    print ''
+    print
 
 
 def build_argparser():
     """Create our argument parser."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
-    phelp = ('Include a list of all packages, all scripts, used packages, and '
-             'used scripts in the --report ' 'and --report_clean output.')
-    parser.add_argument('-v', '--verbose', help=phelp, action='store_true')
+    phelp = ("Include a list of all packages, all scripts, used packages, and "
+             "used scripts in the --report and --report_clean output.")
+    parser.add_argument("-v", "--verbose", help=phelp, action="store_true")
     group = parser.add_mutually_exclusive_group(required=True)
 
-    phelp = 'Output unused packages and scripts to STDOUT.'
-    group.add_argument('--report', help=phelp, action='store_true')
-    group.add_argument('--report_clean', help='Output unused packages and '
-                       'scripts. Then, prompt user to remove them all.',
-                       action='store_true')
+    phelp = "Output unused packages and scripts to STDOUT."
+    group.add_argument("--report", help=phelp, action="store_true")
+    group.add_argument("--report_clean", help="Output unused packages and "
+                       "scripts. Then, prompt user to remove them all.",
+                       action="store_true")
 
-    phelp = ('Remove packages and scripts listed in supplied file. The file '
-             'should list one package or script per line (as output by '
-             '--report)')
-    group.add_argument('--remove', help=phelp)
+    phelp = ("Remove packages and scripts listed in supplied file. The file "
+             "should list one package or script per line (as output by "
+             "--report)")
+    group.add_argument("--remove", help=phelp)
 
     return parser
 
@@ -339,5 +339,5 @@ def main():
         remove(j, removal_set)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
