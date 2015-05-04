@@ -82,7 +82,7 @@ DESCRIPTION = ("Report on all unused packages and scripts on a JSS. "
                "Uses configured AutoPkg/JSSImporter settings first; "
                "Then falls back to python-jss settings.")
 
-__version__ = "0.1.0"
+__version__ = "1.0.1"
 
 
 class Error(Exception):
