@@ -1,22 +1,46 @@
 #!/usr/bin/python
+# Copyright (C) 2015 Shea G Craig
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 """Spruce.py
 
 Find all unused packages and scripts on a JSS and offer to remove them.
 
-Copyright (C) 2015 Shea G Craig <shea.craig@da.org>
+usage: Spruce.py [-h] [-v] (--report | --report_clean | --remove REMOVE)
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+Report on all unused packages and scripts on a JSS. Optionally, remove
+them.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+Use the '--report_clean' option to report and remove in one go
+(emergency prompt included!). If you would like to review and edit the
+list, use the '-- report' option to output the report only; then use the
+'--remove' option with a file listing those packages and scripts you
+wish to remove. Uses configured AutoPkg/JSSImporter settings first; Then
+falls back to python-jss settings.
 
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+optional arguments:
+  -h, --help       show this help message and exit
+  -v, --verbose    Include a list of all packages, all scripts, used
+                   packages, and used scripts in the --report and
+                   --report_clean output.
+  --report         Output unused packages and scripts to STDOUT.
+  --report_clean   Output unused packages and scripts. Then, prompt user
+                   to remove them all.
+  --remove REMOVE  Remove packages and scripts listed in supplied file.
+                   The file should list one package or script per line
+                   (as output by --report)
 """
 
 
