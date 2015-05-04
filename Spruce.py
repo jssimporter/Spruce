@@ -147,7 +147,7 @@ def configure_jss(env):
     ssl_verify = env.get("JSS_VERIFY_SSL", True)
     suppress_warnings = env.get("JSS_SUPPRESS_WARNINGS", False)
     # No get method for Plist.
-    if "JSS_REPOS" in env.keys():
+    if "JSS_REPOS" in env:
         repos = env["JSS_REPOS"]
     else:
         repos = None
@@ -246,7 +246,7 @@ def load_file(filename):
 
     """
     with open(os.path.expanduser(filename), 'r') as ifile:
-        result_set = [line.rstrip('\n') for line in ifile.readlines() if not
+        result_set = [line.rstrip('\n') for line in ifile if not
                       line.startswith((' ', '#', '\t', '\n'))]
     return result_set
 
