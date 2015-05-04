@@ -78,6 +78,7 @@ class Plist(dict):
 
     def read_file(self, path):
         """Replace internal XML dict with data from plist at path.
+
         Args:
             path: String path to a plist file.
 
@@ -161,9 +162,11 @@ def map_python_jss_env(env):
 
 
 def remove(j, items):
-    """Remove packages and scripts from a JSS as passed in iterable
-    'items'.
+    """Remove packages and scripts from a JSS.
 
+    Args:
+        items: Iterable of string object names to remove. May be a
+            package or a script.
     """
     for item in items:
         # Remove the JSS Object for item:
@@ -179,9 +182,10 @@ def remove(j, items):
 
 
 def report(j, verbose=False):
-    """Populate a set of packages and scripts that are in use, and return
-    the difference with a set of all packages and scripts.
+    """Report on unused packages and scripts.
 
+    Populate a set of packages and scripts that are in use, and return
+    the difference with a set of all packages and scripts.
     """
     all_policies = j.Policy().retrieve_all()
     all_packages = {package['name'] for package in j.Package()}
@@ -209,11 +213,13 @@ def report(j, verbose=False):
 
 
 def report_clean(j, verbose=False):
-    """Populate a set of packages and scripts that are in use, and
+    """Report on unused packages and scripts, then remove them.
+
+    Populates a set of packages and scripts that are in use, and
     return the difference with a set of all packages and scripts.
+
     Prompt user to confirm, then remove all unused scripts and
     packages.
-
     """
     unused_packages, unused_scripts = report(j, verbose)
     response = raw_input('Do you want to remove these unused packages? (Y|N) ')
@@ -228,13 +234,19 @@ def report_clean(j, verbose=False):
         print "Skipping script removal."
 
 
-def load_file(filename):
-    """Given a filename to a file, comprised of a single package or
-    script per line, return a list of those objects.
+def load_removal_file(filename):
+    """Get a set of files to remove from a file.
 
-    The file may contain comments and WS. Any line starting with a '#',
-    a tab, newline, or a blank space will be ignored.
+    Args:
+        filename: String path to a plaintext file, comprised of a
+            single package or script filename per line.
 
+            The file may contain comments and WS. Any line starting
+            with a '#', a tab, newline, or a blank space will be
+            ignored.
+
+    Returns:
+        A set of the files and scripts to remove.
     """
     with open(os.path.expanduser(filename), 'r') as ifile:
         result_set = [line.rstrip('\n') for line in ifile if not
@@ -243,9 +255,10 @@ def load_file(filename):
 
 
 def output(data_set):
-    """Nicely format and print to STDOUT a heading, followed by data.
-    data_set should be a tuple of (heading, set or list data)
+    """Print a heading and report data.
 
+    Args:
+        data_set: Tuple of (heading, set or list data)
     """
     print 10 * '#' + ' %s:' % data_set[0]
     for line in sorted(data_set[1]):
@@ -306,7 +319,7 @@ def main():
     elif args.report_clean:
         report_clean(j, args.verbose)
     elif args.remove:
-        removal_set = load_file(args.remove)
+        removal_set = load_removal_file(args.remove)
         remove(j, removal_set)
 
 
