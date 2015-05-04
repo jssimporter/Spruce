@@ -24,13 +24,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 from distutils.version import StrictVersion
 import os.path
-import readline
+import readline  # pylint: disable=unused-import
 import sys
 
+# pylint: disable=no-name-in-module
 from Foundation import (NSData,
                         NSPropertyListSerialization,
                         NSPropertyListMutableContainers,
                         NSPropertyListXMLFormat_v1_0)
+# pylint: enable=no-name-in-module
 
 import jss
 # Ensure that python-jss dependency is at minimum version
@@ -67,6 +69,7 @@ class Plist(dict):
     """
     def __init__(self, filename=None):
         """Parses an XML file into a Recipe object."""
+        super(Plist, self).__init__()
         self._xml = {}
 
         if filename:
@@ -98,8 +101,9 @@ class Plist(dict):
     def read_recipe(self, path):
         """Read a recipe into a dict."""
         path = os.path.expanduser(path)
-        if not (os.path.isfile(path)):
+        if not os.path.isfile(path):
             raise Exception("File does not exist: %s" % path)
+        # pylint: disable=unused-variable
         info, pformat, error = \
             NSPropertyListSerialization.propertyListWithData_options_format_error_(
                 NSData.dataWithContentsOfFile_(path),
@@ -107,6 +111,7 @@ class Plist(dict):
                 None,
                 None
             )
+        # pylint: enable=unused-variable
         if error:
             raise Exception("Can't read %s: %s" % (path, error))
 
@@ -179,7 +184,7 @@ def remove(j, items):
 
         # Delete the actual file:
         j.distribution_points.delete(item)
-        print("Deleted: %s" % item)
+        print "Deleted: %s" % item
 
 
 def report(j, verbose=False):
@@ -224,12 +229,12 @@ def report_clean(j, verbose=False):
     if response.upper() == 'Y':
         remove(j, unused_packages)
     else:
-        print("Skipping package removal.")
-    response = raw_input('Do you want to remove these unused packages? (Y|N) ')
+        print "Skipping package removal."
+    response = raw_input('Do you want to remove these unused scripts? (Y|N) ')
     if response.upper() == 'Y':
         remove(j, unused_scripts)
     else:
-        print("Skipping script removal.")
+        print "Skipping script removal."
 
 
 def load_file(filename):
@@ -251,18 +256,18 @@ def output(data_set):
     data_set should be a tuple of (heading, set or list data)
 
     """
-    print(10 * '#' + ' %s:' % data_set[0])
+    print 10 * '#' + ' %s:' % data_set[0]
     for line in sorted(data_set[1]):
-        print(line)
+        print line
 
-    print('')
+    print ''
 
 
 def build_argparser():
     """Create our argument parser."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     phelp = ('Include a list of all packages, all scripts, used packages, and '
-            'used scripts in the --report ' 'and --report_clean output.')
+             'used scripts in the --report ' 'and --report_clean output.')
     parser.add_argument('-v', '--verbose', help=phelp, action='store_true')
     group = parser.add_mutually_exclusive_group(required=True)
 
@@ -273,8 +278,8 @@ def build_argparser():
                        action='store_true')
 
     phelp = ('Remove packages and scripts listed in supplied file. The file '
-            'should list one package or script per line (as output by '
-            '--report)')
+             'should list one package or script per line (as output by '
+             '--report)')
     group.add_argument('--remove', help=phelp)
 
     return parser
@@ -285,8 +290,8 @@ def main():
     # Ensure we have the right version of python-jss.
     python_jss_version = StrictVersion(PYTHON_JSS_VERSION)
     if python_jss_version < REQUIRED_PYTHON_JSS_VERSION:
-        print("Requires python-jss version: %s. Installed: %s" %
-                (REQUIRED_PYTHON_JSS_VERSION, python_jss_version))
+        print ("Requires python-jss version: %s. Installed: %s" %
+               (REQUIRED_PYTHON_JSS_VERSION, python_jss_version))
         sys.exit()
 
     # Handle command line arguments.
