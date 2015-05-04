@@ -17,7 +17,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 """
 
 
@@ -30,7 +29,7 @@ import sys
 # pylint: disable=no-name-in-module
 from Foundation import (NSData,
                         NSPropertyListSerialization,
-                        NSPropertyListMutableContainers,
+                        NSPropertyListMutableContainersAndLeaves,
                         NSPropertyListXMLFormat_v1_0)
 # pylint: enable=no-name-in-module
 
@@ -63,79 +62,71 @@ __version__ = '0.1.0'
 
 
 class Plist(dict):
-    """Abbreviated plist representation (as a dict) with methods for
-    reading, writing, and creating blank plists.
+    """Abbreviated plist representation (as a dict)."""
 
-    """
     def __init__(self, filename=None):
-        """Parses an XML file into a Recipe object."""
-        super(Plist, self).__init__()
-        self._xml = {}
+        """Init a Plist, optionally from parsing an existing file.
 
+        Args:
+            filename: String path to a plist file.
+        """
         if filename:
-            self.read_recipe(filename)
+            dict.__init__(self, self.read_file(filename))
         else:
+            dict.__init__(self)
             self.new_plist()
 
-    def __getitem__(self, key):
-        return self._xml[key]
+    def read_file(self, path):
+        """Replace internal XML dict with data from plist at path.
+        Args:
+            path: String path to a plist file.
 
-    def __setitem__(self, key, value):
-        self._xml[key] = value
-
-    def __delitem__(self, key):
-        del self._xml[key]
-
-    def __iter__(self):
-        return iter(self._xml)
-
-    def __len__(self):
-        return len(self._xml)
-
-    def __repr__(self):
-        return dict(self._xml).__repr__()
-
-    def __str__(self):
-        return dict(self._xml).__str__()
-
-    def read_recipe(self, path):
-        """Read a recipe into a dict."""
-        path = os.path.expanduser(path)
-        if not os.path.isfile(path):
-            raise Exception("File does not exist: %s" % path)
+        Raises:
+            PlistParseError: Error in reading plist file.
+        """
         # pylint: disable=unused-variable
         info, pformat, error = (
             NSPropertyListSerialization.propertyListWithData_options_format_error_(
-                NSData.dataWithContentsOfFile_(path),
-                NSPropertyListMutableContainers,
+                NSData.dataWithContentsOfFile_(os.path.expanduser(path)),
+                NSPropertyListMutableContainersAndLeaves,
                 None,
                 None
             ))
         # pylint: enable=unused-variable
-        if error:
-            raise Exception("Can't read %s: %s" % (path, error))
+        if info is None:
+            if error is None:
+                error = "Invalid plist file."
+            raise PlistParseError("Can't read %s: %s" % (path, error))
 
-        self._xml = info
+        return info
 
-    def write_recipe(self, path):
-        """Write a recipe to path."""
-        path = os.path.expanduser(path)
+    def write_plist(self, path):
+        """Write plist to path.
+
+        Args:
+            path: String path to desired plist file.
+
+        Raises:
+            PlistDataError: There was an error in the data.
+            PlistWriteError: Plist could not be written.
+        """
         plist_data, error = NSPropertyListSerialization.dataWithPropertyList_format_options_error_(
-            self._xml,
+            self,
             NSPropertyListXMLFormat_v1_0,
             0,
-            None
-        )
-        if error:
-            raise Exception(error)
+            None)
+        if plist_data is None:
+            if error is None:
+                error = "Failed to serialize data to plist."
+            raise PlistDataError(error)
         else:
-            if plist_data.writeToFile_atomically_(path, True):
-                return
-            else:
-                raise Exception("Failed writing data to %s" % path)
+            if not plist_data.writeToFile_atomically_(
+                    os.path.expanduser(path), True):
+                raise PlistWriteError("Failed writing data to %s" % path)
 
     def new_plist(self):
         """Generate a barebones recipe plist."""
+        # Not implemented at this time.
         pass
 
 
