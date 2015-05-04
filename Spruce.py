@@ -34,7 +34,7 @@ from Foundation import (NSData,
 # pylint: enable=no-name-in-module
 
 import jss
-# Ensure that python-jss dependency is at minimum version
+# Ensure that python-jss dependency is at minimum version.
 try:
     from jss import __version__ as PYTHON_JSS_VERSION
 except ImportError:
@@ -59,6 +59,26 @@ DESCRIPTION = ("Report on all unused packages and scripts on a JSS. "
                "Then falls back to python-jss settings.")
 
 __version__ = '0.1.0'
+
+
+class Error(Exception):
+    """Module base exception."""
+    pass
+
+
+class PlistParseError(Error):
+    """Error parsing a plist file."""
+    pass
+
+
+class PlistDataError(Error):
+    """Data can not be serialized to plist."""
+    pass
+
+
+class PlistWriteError(Error):
+    """Error writing a plist file."""
+    pass
 
 
 class Plist(dict):
@@ -138,11 +158,7 @@ def configure_jss(env):
     auth_pass = env["API_PASSWORD"]
     ssl_verify = env.get("JSS_VERIFY_SSL", True)
     suppress_warnings = env.get("JSS_SUPPRESS_WARNINGS", False)
-    # No get method for Plist.
-    if "JSS_REPOS" in env:
-        repos = env["JSS_REPOS"]
-    else:
-        repos = None
+    repos = env.get("JSS_REPOS", None)
     j = jss.JSS(url=repo_url, user=auth_user, password=auth_pass,
                 ssl_verify=ssl_verify, repo_prefs=repos,
                 suppress_warnings=suppress_warnings)
