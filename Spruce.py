@@ -301,7 +301,7 @@ def output(data_set):
         data_set: Tuple of (heading, set or list data)
     """
     print 10 * "#" + " %s:" % data_set[0]
-    for line in sorted(data_set[1]):
+    for line in sorted(data_set[1], key=lambda s: s.upper()):
         print line
 
     print
