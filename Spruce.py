@@ -64,7 +64,7 @@ try:
 except ImportError:
     PYTHON_JSS_VERSION = "0.0.0"
 
-REQUIRED_PYTHON_JSS_VERSION = StrictVersion("0.5.5")
+REQUIRED_PYTHON_JSS_VERSION = StrictVersion("1.2.1")
 
 
 # Globals
