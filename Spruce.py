@@ -356,8 +356,7 @@ def build_argparser():
 
     phelp = ("Generate all reports. With no other arguments, this is "
              "the default.")
-    parser.add_argument("-a", "--all", help=phelp, action="store_true",
-                        default=True)
+    parser.add_argument("-a", "--all", help=phelp, action="store_true")
     phelp = "Generate unused package report."
     parser.add_argument("-p", "--packages", help=phelp, action="store_true")
     phelp = "Generate unused script report."
@@ -410,6 +409,11 @@ def main():
     j = JSSConnection.setup(connection)
 
     # Determine actions based on supplied arguments.
+    # If all has been set, or if no other args, assume a full report is
+    # desired.
+    if args.all or not any(vars(args).values()):
+        # Run all of the reports.
+        pass
     if args.remove:
         removal_set = load_removal_file(args.remove)
         remove(j, removal_set)
@@ -417,9 +421,6 @@ def main():
     #    report(j, args.verbose)
     #elif args.report_clean:
     #    report_clean(j, args.verbose)
-    else:
-        # Default behavior with no args is an --all report.
-        pass
 
 
 if __name__ == "__main__":
