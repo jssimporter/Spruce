@@ -314,21 +314,36 @@ def build_argparser():
     parser = argparse.ArgumentParser(
         description=DESCRIPTION,
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    phelp = ("Include a list of all packages, all scripts, used packages, and "
-             "used scripts in the --report and --report_clean output.")
+    phelp = ("Include a list of all objects and used objects in addition to "
+             "unused objects in reports.")
     parser.add_argument("-v", "--verbose", help=phelp, action="store_true")
-    group = parser.add_mutually_exclusive_group(required=True)
+    #group = parser.add_mutually_exclusive_group(required=True)
 
-    phelp = "Output unused packages and scripts to STDOUT."
-    group.add_argument("--report", help=phelp, action="store_true")
-    group.add_argument("--report_clean", help="Output unused packages and "
-                       "scripts. Then, prompt user to remove them all.",
-                       action="store_true")
+    phelp = ("Generate all reports. With no other arguments, this is "
+             "the default.")
+    parser.add_argument("-a", "--all", help=phelp, action="store_true",
+                        default=True)
+    phelp = "Generate unused package report."
+    parser.add_argument("-p", "--packages", help=phelp, action="store_true")
+    phelp = "Generate unused script report."
+    parser.add_argument("-s", "--scripts", help=phelp, action="store_true")
+    phelp = "Generate unused computer-groups report (Static and Smart)."
+    parser.add_argument("-g", "--computer_groups", help=phelp,
+                        action="store_true")
+    phelp = "Generate unused mobile-device-groups report (Static and Smart)."
+    parser.add_argument("-r", "--mobile_device_groups", help=phelp,
+                        action="store_true")
+    phelp = "Generate unused configuration-profiles report."
+    parser.add_argument("-c", "--configuration_profiles", help=phelp,
+                        action="store_true")
+    phelp = "Generate unused mobile-device-profiles report."
+    parser.add_argument("-m", "--mobile_device_configuration_profiles",
+                        help=phelp, action="store_true")
 
     phelp = ("Remove packages and scripts listed in supplied file. The file "
              "should list one package or script per line (as output by "
              "--report)")
-    group.add_argument("--remove", help=phelp)
+    parser.add_argument("--remove", help=phelp)
 
     return parser
 
@@ -358,13 +373,17 @@ def main():
         raise jss.exceptions.JSSPrefsMissingFileError(
             "No python-jss or AutoPKG/JSSImporter configuration file!")
 
-    if args.report:
-        report(j, args.verbose)
-    elif args.report_clean:
-        report_clean(j, args.verbose)
-    elif args.remove:
+    # Determine actions based on supplied arguments.
+    if args.remove:
         removal_set = load_removal_file(args.remove)
         remove(j, removal_set)
+    #elif args.report:
+    #    report(j, args.verbose)
+    #elif args.report_clean:
+    #    report_clean(j, args.verbose)
+    else:
+        # Default behavior with no args is an --all report.
+        pass
 
 
 if __name__ == "__main__":
