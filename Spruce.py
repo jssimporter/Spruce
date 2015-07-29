@@ -72,17 +72,19 @@ REQUIRED_PYTHON_JSS_VERSION = StrictVersion("0.5.5")
 AUTOPKG_PREFERENCES = "~/Library/Preferences/com.github.autopkg.plist"
 PYTHON_JSS_PREFERENCES = (
     "~/Library/Preferences/com.github.sheagcraig.python-jss.plist")
-DESCRIPTION = ("Report on all unused packages and scripts on a JSS. "
-               "Optionally, remove them. Use the '--report_clean' "
-               "option to report and remove in one go (emergency prompt "
-               "included!).\nIf you would like to review and edit the "
-               "list, use the '--report' option to output the report "
-               "only; then use the '--remove' option with a file "
-               "listing those packages and scripts you wish to remove. "
-               "Uses configured AutoPkg/JSSImporter settings first; "
-               "Then falls back to python-jss settings.")
+DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
+               "\n\nUsing the various reporting options, you can see "
+               "unused packages, scripts,\ncomputer groups, "
+               "configuration profiles, mobile device groups, and "
+               "mobile\ndevice configuration profiles.\n\n"
+               "Reports are output to stdout. The "
+               "same format may be used to remove\nobjects, fed into "
+               "Spruce with the --remove option.\n\n"
+               "Spruce uses configured AutoPkg/JSSImporter settings "
+               "first. If those are\nmissing, Spruce falls back to "
+               "python-jss settings.")
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 
 
 class Error(Exception):
@@ -309,7 +311,9 @@ def output(data_set):
 
 def build_argparser():
     """Create our argument parser."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     phelp = ("Include a list of all packages, all scripts, used packages, and "
              "used scripts in the --report and --report_clean output.")
     parser.add_argument("-v", "--verbose", help=phelp, action="store_true")
