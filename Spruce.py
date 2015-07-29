@@ -177,30 +177,65 @@ class Plist(dict):
         pass
 
 
-def configure_jss(env):
-    """Configure a JSS object."""
-    repo_url = env["JSS_URL"]
-    auth_user = env["API_USERNAME"]
-    auth_pass = env["API_PASSWORD"]
-    ssl_verify = env.get("JSS_VERIFY_SSL", True)
-    suppress_warnings = env.get("JSS_SUPPRESS_WARNINGS", False)
-    repos = env.get("JSS_REPOS", None)
-    j = jss.JSS(url=repo_url, user=auth_user, password=auth_pass,
-                ssl_verify=ssl_verify, repo_prefs=repos,
-                suppress_warnings=suppress_warnings)
-    return j
+class JSSConnection(object):
+    """Class for providing a single JSS connection."""
+    _jss_prefs = None
+    _jss = None
+
+    @classmethod
+    def setup(cls, connection={"jss_prefs": jss.JSSPrefs()}):
+        """Set up the jss connection class variable.
+
+        If no connection argument is provided, setup will use the
+        standard JSSPrefs preferences
+        (com.github.sheagcraig.python-jss).
+
+        Args:
+            connection: Dictionary with JSS connection info, keys:
+                jss_prefs: String path to a preference file.
+                url: Path with port to a JSS.
+                user: API Username.
+                password: API Password.
+                repo_prefs: A list of dicts with repository names and
+                    passwords. See JSSPrefs.
+                ssl_verify: Boolean indicating whether to verify SSL
+                    certificates.  Defaults to True.
+                verbose: Boolean indicating the level of logging.
+                    (Doesn't do much.)
+                jss_migrated: Boolean indicating whether scripts have
+                    been migrated to the database. Used for determining
+                    copy_script type.
+                suppress_warnings:
+                    Turns off the urllib3 warnings. Remember, these
+                    warnings are there for a reason! Use at your own
+                    risk.
+        """
+        cls._jss_prefs = connection
+        if isinstance(connection, jss.JSSPrefs):
+            cls._jss = jss.JSS(jss_prefs=cls._jss_prefs)
+        else:
+            cls._jss = jss.JSS(**cls._jss_prefs)
+
+    @classmethod
+    def get(cls):
+        """Return the shared JSS object."""
+        if not cls._jss:
+            cls.setup()
+        return cls._jss
 
 
-def map_python_jss_env(env):
+def map_jssimporter_prefs(prefs):
     """Convert python-jss preferences to JSSImporter preferences."""
-    env["JSS_URL"] = env["jss_url"]
-    env["API_USERNAME"] = env["jss_user"]
-    env["API_PASSWORD"] = env["jss_pass"]
-    env["JSS_VERIFY_SSL"] = env.get("ssl_verify", True)
-    env["JSS_SUPPRESS_WARNINGS"] = env.get("suppress_warnings", False)
-    env["JSS_REPOS"] = env.get("repos")
+    connection = {}
+    connection["url"] = prefs["JSS_URL"]
+    connection["user"] = prefs["API_USERNAME"]
+    connection["password"] = prefs["API_PASSWORD"]
+    connection["ssl_verify"] = prefs.get("JSS_VERIFY_SSL", True)
+    connection["suppress_warnings"] = prefs.get("JSS_SUPPRESS_WARNINGS", True)
+    connection["jss_migrated"] = prefs.get("JSS_MIGRATED", True)
+    connection["repo_prefs"] = prefs.get("JSS_REPOS")
 
-    return env
+    return connection
 
 
 def remove(j, items):
@@ -365,13 +400,14 @@ def main():
     # that, get python-jss settings.
     if os.path.exists(os.path.expanduser(AUTOPKG_PREFERENCES)):
         autopkg_env = Plist(AUTOPKG_PREFERENCES)
-        j = configure_jss(autopkg_env)
-    elif os.path.exists(os.path.expanduser(PYTHON_JSS_PREFERENCES)):
-        python_jss_env = map_python_jss_env(Plist(PYTHON_JSS_PREFERENCES))
-        j = configure_jss(python_jss_env)
+        connection = map_jssimporter_prefs(autopkg_env)
     else:
-        raise jss.exceptions.JSSPrefsMissingFileError(
-            "No python-jss or AutoPKG/JSSImporter configuration file!")
+        try:
+            connection = jss.JSSPrefs()
+        except jss.exceptions.JSSPrefsMissingFileError:
+            print "No python-jss or AutoPKG/JSSImporter configuration file!"
+
+    j = JSSConnection.setup(connection)
 
     # Determine actions based on supplied arguments.
     if args.remove:
