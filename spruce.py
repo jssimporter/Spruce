@@ -241,42 +241,41 @@ def remove(j, items):
     #    print "Deleted: %s" % item
 
 
-def build_computer_scoped_report(jss_objects, policy_xpath, config_xpath):
-    """Report on objects used in computer scoping-objects.
+def build_report(containers_with_search_paths, jss_objects):
+    """Report on the usage of objects contained in container objects.
 
-    Computers can have packages or scripts scoped to policies or
-    configurations.
+    Find the used and unused jss_objects across a list of containing
+    JSSContainerObjects.
+
+    For example, Computers can have packages or scripts scoped to
+    policies or configurations.
 
     Args:
-        jss_objects: A list of JSSObject names to find in policies
-            and computer imaging configurations.
-        policy_xpath: Strong xpath to the nested object's name in a
-            policy.
-        config_xpath: Strong xpath to the nested object's name in a
-            computer imaging configuration.
+        containers_with_search_paths: A list of 2-tuples of:
+            ([list of JSSContainerObjects], xpath to search for
+            contained objects)
+        jss_objects: A list of JSSObject names to search for in
+            the containers_with_search_paths.
 
     Returns:
         A 3-item dict consisting of sets of search-object names with keys:
             all
-            policy_used
-            config_used
+            used
             unused
     """
-    jss_connection = JSSConnection.get()
-    all_policies = jss_connection.Policy().retrieve_all()
-    all_configurations = jss_connection.ComputerConfiguration().retrieve_all()
+    used_object_sets = []
+    for containers, search in containers_with_search_paths:
+        used_object_sets.append({obj.text for container in containers for obj
+                                 in container.findall(search)})
 
-    objs_used_in_policies = {obj.text for policy in all_policies for obj in
-                             policy.findall(policy_xpath)}
-    objs_used_in_configs = {obj.text for config in all_configurations for obj
-                            in config.findall(config_xpath)}
-
-    used = objs_used_in_policies.union(objs_used_in_configs)
+    if used_object_sets:
+        used = used_object_sets.pop()
+        for used_object_set in used_object_sets:
+            used = used.union(used_object_set)
     unused = set(jss_objects).difference(used)
 
     results = {"all": jss_objects,
-               "policy_used": objs_used_in_policies,
-               "config_used": objs_used_in_configs,
+               "used": used,
                "unused": unused}
 
     return results
@@ -293,11 +292,14 @@ def build_packages_report():
             unused
     """
     jss_connection = JSSConnection.get()
+    all_policies = jss_connection.Policy().retrieve_all()
+    all_configs = jss_connection.ComputerConfiguration().retrieve_all()
     all_packages = [package.name for package in jss_connection.Package()]
     policy_xpath = "package_configuration/packages/package/name"
     config_xpath = "packages/package/name"
-    results = build_computer_scoped_report(all_packages, policy_xpath,
-                                           config_xpath)
+    results = build_report(
+        [(all_policies, policy_xpath), (all_configs, config_xpath)],
+        all_packages)
 
     return results
 
@@ -313,11 +315,14 @@ def build_scripts_report():
             unused
     """
     jss_connection = JSSConnection.get()
+    all_policies = jss_connection.Policy().retrieve_all()
+    all_configs = jss_connection.ComputerConfiguration().retrieve_all()
     all_scripts = [script.name for script in jss_connection.Script()]
     policy_xpath = "scripts/script/name"
     config_xpath = "scripts/script/name"
-    results = build_computer_scoped_report(all_scripts, policy_xpath,
-                                           config_xpath)
+    results = build_report(
+        [(all_policies, policy_xpath), (all_configs, config_xpath)],
+        all_scripts)
 
     return results
 
@@ -360,7 +365,7 @@ def print_output(reports, verbose=False):
                 results_to_print = ["unused"]
 
             for results_type in results_to_print:
-                print "\n%s  %s" % (SPRUCE, results_type)
+                print "\n%s  %s" % (SPRUCE, results_type.title())
                 for line in sorted(report["results"][results_type], key=lambda
                                    s: s.upper()):
                     print line
