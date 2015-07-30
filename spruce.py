@@ -77,12 +77,19 @@ DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
                "unused packages, scripts,\ncomputer groups, "
                "configuration profiles, mobile device groups, and "
                "mobile\ndevice configuration profiles.\n\n"
-               "Reports are output to stdout. The "
-               "same format may be used to remove\nobjects, fed into "
-               "Spruce with the --remove option.\n\n"
+               "Reports are by default output to stdout, and may "
+               "optionally be output as\na plist for later use in "
+               "automated removal.\n\n"
                "Spruce uses configured AutoPkg/JSSImporter settings "
                "first. If those are\nmissing, Spruce falls back to "
-               "python-jss settings.")
+               "python-jss settings.\n\nThe recommended workflow is to "
+               "begin by running the reports you find\ninteresting. "
+               "After becoming familiar with the scale of unused "
+               "things,\nreports can be output with the -o/--ofile "
+               "option. This file can then be\nedited down to include "
+               "only those things which you wish to remove.\nFinally, "
+               "pass this filename as an option to the --remove "
+               "argument to\nremove the specified objects.")
 
 __version__ = "1.1.0"
 
@@ -389,8 +396,10 @@ def build_argparser():
     phelp = ("Include a list of all objects and used objects in addition to "
              "unused objects in reports.")
     parser.add_argument("-v", "--verbose", help=phelp, action="store_true")
-    #group = parser.add_mutually_exclusive_group(required=True)
 
+    phelp = ("Output results to OFILE, in plist format (also usable as "
+             "input to the --remove option).")
+    parser.add_argument("-o", "--ofile", help=phelp)
     phelp = ("Generate all reports. With no other arguments, this is "
              "the default.")
     parser.add_argument("-a", "--all", help=phelp, action="store_true")
@@ -411,9 +420,10 @@ def build_argparser():
     parser.add_argument("-m", "--mobile_device_configuration_profiles",
                         help=phelp, action="store_true")
 
-    phelp = ("Remove packages and scripts listed in supplied file. The file "
-             "should list one package or script per line (as output by "
-             "--report)")
+    phelp = ("Remove objects specified in supplied plist REMOVE. If "
+             "this option is used, all reporting is skipped. The input "
+             "file is most easily created by editing the results of a "
+             "report with the -o/--ofile option.")
     parser.add_argument("--remove", help=phelp)
 
     return parser
