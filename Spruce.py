@@ -245,49 +245,107 @@ def remove(j, items):
         items: Iterable of string object names to remove. May be a
             package or a script.
     """
-    for item in items:
-        # Remove the JSS Object for item:
-        if os.path.splitext(item)[1].upper() in [".PKG", ".DMG"]:
-            j.Package(item).delete()
-        else:
-            # Must be a script.
-            j.Script(item).delete()
+    pass
+    #for item in items:
+    #    # Remove the JSS Object for item:
+    #    if os.path.splitext(item)[1].upper() in [".PKG", ".DMG"]:
+    #        j.Package(item).delete()
+    #    else:
+    #        # Must be a script.
+    #        j.Script(item).delete()
 
-        # Delete the actual file:
-        j.distribution_points.delete(item)
-        print "Deleted: %s" % item
+    #    # Delete the actual file:
+    #    j.distribution_points.delete(item)
+    #    print "Deleted: %s" % item
 
 
-# TODO: This will be refactored into subreports.
-def report(j, verbose=False):
-    """Report on unused packages and scripts.
+def build_computer_scoped_report(jss_objects, policy_xpath, config_xpath):
+    """Report on objects used in computer scoping-objects.
 
-    Populate a set of packages and scripts that are in use, and return
-    the difference with a set of all packages and scripts.
+    Computers can have packages or scripts scoped to policies or
+    configurations.
+
+    Args:
+        jss_objects: A list of JSSObject names to find in policies
+            and computer imaging configurations.
+        policy_xpath: Strong xpath to the nested object's name in a
+            policy.
+        config_xpath: Strong xpath to the nested object's name in a
+            computer imaging configuration.
+
+    Returns:
+        A 3-item dict consisting of sets of search-object names with keys:
+            all
+            policy_used
+            config_used
+            unused
     """
-    all_policies = j.Policy().retrieve_all()
-    all_packages = {package["name"] for package in j.Package()}
-    all_scripts = {script["name"] for script in j.Script()}
-    used_packages = {package.text for policy in all_policies for
-                     package in policy.findall(
-                         "package_configuration/packages/package/name")}
-    used_scripts = {script.text for policy in all_policies for
-                    script in policy.findall("scripts/script/name")}
+    jss_connection = JSSConnection.get()
+    all_policies = jss_connection.Policy().retrieve_all()
+    all_configurations = jss_connection.ComputerConfiguration().retrieve_all()
 
-    unused_packages = all_packages.difference(used_packages)
-    unused_scripts = all_scripts.difference(used_scripts)
+    objs_used_in_policies = {obj.text for policy in all_policies for obj in
+                             policy.findall(policy_xpath)}
+    objs_used_in_configs = {obj.text for config in all_configurations for obj
+                            in config.findall(config_xpath)}
 
-    results = [("Unused packages", unused_packages),
-               ("Unused scripts", unused_scripts)]
-    if verbose:
-        results.append(("All packages", all_packages))
-        results.append(("Used packages", used_packages))
-        results.append(("All scripts", all_scripts))
-        results.append(("Used scripts", used_scripts))
-    for result_set in results:
-        output(result_set)
+    used = objs_used_in_policies.union(objs_used_in_configs)
+    unused = set(jss_objects).difference(used)
 
-    return (unused_packages, unused_scripts)
+    #TODO: The returns needn't be sets.
+    results = {"all": jss_objects,
+               "policy_used": objs_used_in_policies,
+               "config_used": objs_used_in_configs,
+               "unused": unused}
+    #if verbose:
+    #    results.append(("All packages", all_packages))
+    #    results.append(("Used packages", used_packages))
+    #    results.append(("All scripts", all_scripts))
+    #    results.append(("Used scripts", used_scripts))
+    #for result_set in results:
+    #    output(result_set)
+
+    return results
+
+
+def build_packages_report():
+    """Report on package usage.
+
+    Returns:
+        A 3-item dict consisting of sets of Package names with keys:
+            all
+            policy_used
+            config_used
+            unused
+    """
+    jss_connection = JSSConnection.get()
+    all_packages = [package.name for package in jss_connection.Package()]
+    policy_xpath = "package_configuration/packages/package/name"
+    config_xpath = "packages/package/name"
+    results = build_computer_scoped_report(all_packages, policy_xpath,
+                                           config_xpath)
+
+    return results
+
+
+def build_scripts_report():
+    """Report on script usage.
+
+    Returns:
+        A 3-item dict consisting of sets of Script names with keys:
+            all
+            policy_used
+            config_used
+            unused
+    """
+    jss_connection = JSSConnection.get()
+    all_scripts = [script.name for script in jss_connection.Script()]
+    policy_xpath = "scripts/script/name"
+    config_xpath = "scripts/script/name"
+    results = build_computer_scoped_report(all_scripts, policy_xpath,
+                                           config_xpath)
+
+    return results
 
 
 def load_removal_file(filename):
@@ -392,14 +450,20 @@ def main():
     # desired.
     if args.all or not any(vars(args).values()):
         # Run all of the reports.
-        # TODO: Run reports.
-        pass
+        results = []
+        all_reports = (build_packages_report, build_scripts_report)
+
+        for report in all_reports:
+            results.append(report())
+
     if args.remove:
         if os.path.exists(os.path.expanduser(args.remove)):
             removal_set = load_removal_file(args.remove)
             remove(j, removal_set)
         else:
             sys.exit("Removal file '%s' does not exist." % args.remove)
+
+    #if args.
     #elif args.report:
     #    report(j, args.verbose)
     #elif args.report_clean:
