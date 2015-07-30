@@ -14,40 +14,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Spruce.py
+"""spruce.py
+#TODO: Put usage in.
 
-Find all unused packages and scripts on a JSS and offer to remove them.
-
-usage: Spruce.py [-h] [-v] (--report | --report_clean | --remove REMOVE)
-
-Report on all unused packages and scripts on a JSS. Optionally, remove
-them.
-
-Use the '--report_clean' option to report and remove in one go
-(emergency prompt included!). If you would like to review and edit the
-list, use the '-- report' option to output the report only; then use the
-'--remove' option with a file listing those packages and scripts you
-wish to remove. Uses configured AutoPkg/JSSImporter settings first; Then
-falls back to python-jss settings.
-
-optional arguments:
-  -h, --help       show this help message and exit
-  -v, --verbose    Include a list of all packages, all scripts, used
-                   packages, and used scripts in the --report and
-                   --report_clean output.
-  --report         Output unused packages and scripts to STDOUT.
-  --report_clean   Output unused packages and scripts. Then, prompt user
-                   to remove them all.
-  --remove REMOVE  Remove packages and scripts listed in supplied file.
-                   The file should list one package or script per line
-                   (as output by --report)
 """
 
 
 import argparse
 from distutils.version import StrictVersion
 import os.path
-import readline  # pylint: disable=unused-import
 import sys
 
 # pylint: disable=no-name-in-module
@@ -431,6 +406,57 @@ def build_argparser():
     return parser
 
 
+def run_reports(args):
+    """Runs reports specified as commandline args to spruce.
+
+    Runs each report specified as a commandline arguement, and outputs
+    by default to stdout, or to a plist file specified with -o/--ofile.
+
+    Shows report construction progress, and prints report after all
+    data is crunched.
+
+    Args:
+        args: parsed argparser namespace object for spruce.
+    """
+    # Define the types of reports we can accept.
+    reports = {}
+    reports["packages"] = {"heading": "Package Report",
+                           "func": build_packages_report,
+                           "results": {}}
+    reports["scripts"] = {"heading": "Scripts Report",
+                          "func": build_scripts_report,
+                          "results": {}}
+
+    args_dict = vars(args)
+    # Build a list of report key names, requested by user, which are
+    # tightly coupled, despite the smell, to arg names.
+    requested_reports = [report for report in reports if
+                         args_dict[report]]
+    # If either the --all option has been provided, OR none of the
+    # other reports options have been specified, assume user wants all
+    # reports (filtering out --remove is handled elsewhere).
+    if args.all or not requested_reports:
+        # Replace report list with all known report names.
+        requested_reports = [report for report in reports]
+
+    # Build the reports
+    for report in reports:
+        report_dict = reports[report]
+        print ("\xF0\x9F\x8C\xB2 Building: %s..." %
+                report_dict["heading"])
+        report_dict["results"] = report_dict["func"]()
+
+    # TODO: This is still very tentative.
+    for report in reports:
+        report_dict = reports[report]
+        if report_dict["results"]:
+            print report
+            for result in report_dict["results"]:
+                print result
+        # TODO: Hasn't been updated yet.
+        #output(result)
+
+
 def main():
     """Commandline processing."""
     # Ensure we have the right version of python-jss.
@@ -459,11 +485,6 @@ def main():
     j = JSSConnection.setup(connection)
 
     # Determine actions based on supplied arguments.
-    # TODO: Build some kind of structure to hold ALL reports, with
-    #   headings and possibly status "type" (now producing 'X'
-    #    report...)
-    # - Should probably also hold the namespace property to make the
-    #   loop super generic.
 
     # The remove argument is mutually exclusive with the others.
     if args.remove:
@@ -475,15 +496,8 @@ def main():
         else:
             parser.error("Removal file '%s' does not exist." % args.remove)
 
-    # If all has been set, or if no other args, assume a full report is
-    # desired.
-    if args.all or not any(vars(args).values()):
-        # Run all of the reports.
-        results = []
-        all_reports = (build_packages_report, build_scripts_report)
-
-        for report in all_reports:
-            results.append(report())
+    else:
+        run_reports(args)
 
 
 if __name__ == "__main__":
