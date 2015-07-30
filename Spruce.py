@@ -413,10 +413,14 @@ def main():
     # desired.
     if args.all or not any(vars(args).values()):
         # Run all of the reports.
+        # TODO: Run reports.
         pass
     if args.remove:
-        removal_set = load_removal_file(args.remove)
-        remove(j, removal_set)
+        if os.path.exists(os.path.expanduser(args.remove)):
+            removal_set = load_removal_file(args.remove)
+            remove(j, removal_set)
+        else:
+            sys.exit("Removal file '%s' does not exist." % args.remove)
     #elif args.report:
     #    report(j, args.verbose)
     #elif args.report_clean:
