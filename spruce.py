@@ -397,34 +397,36 @@ def build_argparser():
              "unused objects in reports.")
     parser.add_argument("-v", "--verbose", help=phelp, action="store_true")
 
+    group = parser.add_argument_group("Reporting Arguments")
     phelp = ("Output results to OFILE, in plist format (also usable as "
              "input to the --remove option).")
-    parser.add_argument("-o", "--ofile", help=phelp)
+    group.add_argument("-o", "--ofile", help=phelp)
     phelp = ("Generate all reports. With no other arguments, this is "
              "the default.")
-    parser.add_argument("-a", "--all", help=phelp, action="store_true")
+    group.add_argument("-a", "--all", help=phelp, action="store_true")
     phelp = "Generate unused package report."
-    parser.add_argument("-p", "--packages", help=phelp, action="store_true")
+    group.add_argument("-p", "--packages", help=phelp, action="store_true")
     phelp = "Generate unused script report."
-    parser.add_argument("-s", "--scripts", help=phelp, action="store_true")
+    group.add_argument("-s", "--scripts", help=phelp, action="store_true")
     phelp = "Generate unused computer-groups report (Static and Smart)."
-    parser.add_argument("-g", "--computer_groups", help=phelp,
+    group.add_argument("-g", "--computer_groups", help=phelp,
                         action="store_true")
     phelp = "Generate unused mobile-device-groups report (Static and Smart)."
-    parser.add_argument("-r", "--mobile_device_groups", help=phelp,
+    group.add_argument("-r", "--mobile_device_groups", help=phelp,
                         action="store_true")
     phelp = "Generate unused configuration-profiles report."
-    parser.add_argument("-c", "--configuration_profiles", help=phelp,
+    group.add_argument("-c", "--configuration_profiles", help=phelp,
                         action="store_true")
     phelp = "Generate unused mobile-device-profiles report."
-    parser.add_argument("-m", "--mobile_device_configuration_profiles",
+    group.add_argument("-m", "--mobile_device_configuration_profiles",
                         help=phelp, action="store_true")
 
+    removal_group = parser.add_argument_group("Removal Arguments")
     phelp = ("Remove objects specified in supplied plist REMOVE. If "
              "this option is used, all reporting is skipped. The input "
              "file is most easily created by editing the results of a "
              "report with the -o/--ofile option.")
-    parser.add_argument("--remove", help=phelp)
+    removal_group.add_argument("--remove", help=phelp)
 
     return parser
 
@@ -434,9 +436,9 @@ def main():
     # Ensure we have the right version of python-jss.
     python_jss_version = StrictVersion(PYTHON_JSS_VERSION)
     if python_jss_version < REQUIRED_PYTHON_JSS_VERSION:
-        print ("Requires python-jss version: %s. Installed: %s" %
-               (REQUIRED_PYTHON_JSS_VERSION, python_jss_version))
-        sys.exit()
+        sys.exit("Requires python-jss version: %s. Installed: %s\n"
+                 "Please update" % (REQUIRED_PYTHON_JSS_VERSION,
+                                    python_jss_version))
 
     # Handle command line arguments.
     parser = build_argparser()
@@ -451,11 +453,28 @@ def main():
         try:
             connection = jss.JSSPrefs()
         except jss.exceptions.JSSPrefsMissingFileError:
-            print "No python-jss or AutoPKG/JSSImporter configuration file!"
+            sys.exit("No python-jss or AutoPKG/JSSImporter configuration "
+                     "file!")
 
     j = JSSConnection.setup(connection)
 
     # Determine actions based on supplied arguments.
+    # TODO: Build some kind of structure to hold ALL reports, with
+    #   headings and possibly status "type" (now producing 'X'
+    #    report...)
+    # - Should probably also hold the namespace property to make the
+    #   loop super generic.
+
+    # The remove argument is mutually exclusive with the others.
+    if args.remove:
+        if os.path.exists(os.path.expanduser(args.remove)):
+            removal_set = load_removal_file(args.remove)
+            remove(j, removal_set)
+            # We're done, exit.
+            sys.exit()
+        else:
+            parser.error("Removal file '%s' does not exist." % args.remove)
+
     # If all has been set, or if no other args, assume a full report is
     # desired.
     if args.all or not any(vars(args).values()):
@@ -465,19 +484,6 @@ def main():
 
         for report in all_reports:
             results.append(report())
-
-    if args.remove:
-        if os.path.exists(os.path.expanduser(args.remove)):
-            removal_set = load_removal_file(args.remove)
-            remove(j, removal_set)
-        else:
-            sys.exit("Removal file '%s' does not exist." % args.remove)
-
-    #if args.
-    #elif args.report:
-    #    report(j, args.verbose)
-    #elif args.report_clean:
-    #    report_clean(j, args.verbose)
 
 
 if __name__ == "__main__":
