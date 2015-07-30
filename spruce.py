@@ -373,6 +373,13 @@ def print_output(reports, verbose=False):
                                    s: s.upper()):
                     print line
 
+            # Cruftiness score
+            cruftiness = (float(len(report["results"]["unused"])) /
+                   len(report["results"]["all"]))
+            print
+            print "Cruftiness is {:.2%}".format(cruftiness)
+            print
+
 
 def build_argparser():
     """Create our argument parser."""
@@ -458,6 +465,7 @@ def run_reports(args):
         report_dict["results"] = report_dict["func"]()
 
     if not args.ofile:
+        print
         print_output(reports, args.verbose)
     else:
         # write_plist_output(reports)
