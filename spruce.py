@@ -274,18 +274,10 @@ def build_computer_scoped_report(jss_objects, policy_xpath, config_xpath):
     used = objs_used_in_policies.union(objs_used_in_configs)
     unused = set(jss_objects).difference(used)
 
-    #TODO: The returns needn't be sets.
     results = {"all": jss_objects,
                "policy_used": objs_used_in_policies,
                "config_used": objs_used_in_configs,
                "unused": unused}
-    #if verbose:
-    #    results.append(("All packages", all_packages))
-    #    results.append(("Used packages", used_packages))
-    #    results.append(("All scripts", all_scripts))
-    #    results.append(("Used scripts", used_scripts))
-    #for result_set in results:
-    #    output(result_set)
 
     return results
 
