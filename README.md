@@ -13,9 +13,9 @@ usage in any policies.
 packages (```--report_clean```; prompts prior to package removal and prior to
 script removal).
 - Or you can take the safer route and redirect the output to a file, e.g.:
-```./Spruce --report > output.txt``` ...then edit the file to contain only the
+```./spruce --report > output.txt``` ...then edit the file to contain only the
 items to remove (vim...)...
-- ...then feed that file to Spruce: ```./Spruce
+- ...then feed that file to Spruce: ```./spruce
 --remove output.txt```
 
 Obviously this is a powerful and dangerous tool. You've been warned!
