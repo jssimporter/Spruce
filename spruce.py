@@ -65,7 +65,7 @@ DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
                "only those things which you wish to remove.\nFinally, "
                "pass this filename as an option to the --remove "
                "argument to\nremove the specified objects.")
-
+SPRUCE = "\xF0\x9F\x8C\xB2"
 __version__ = "1.1.0"
 
 
@@ -350,17 +350,28 @@ def load_removal_file(filename):
     return result_set
 
 
-def output(data_set):
-    """Print a heading and report data.
+def print_output(reports, verbose=False):
+    """Print report data.
 
     Args:
-        data_set: Tuple of (heading, set or list data)
+        reports: Report dict as constructed in run_reports()
+        verbose: Bool, whether to print all results or just unused
+            results.
     """
-    print 10 * "#" + " %s:" % data_set[0]
-    for line in sorted(data_set[1], key=lambda s: s.upper()):
-        print line
+    for report_name, report in reports.iteritems():
+        if report["results"]:
+            print "%s  %s %s" % (10 * SPRUCE, report["heading"], 50 * SPRUCE)
+            if verbose:
+                results_to_print = [result_type for result_type in
+                                    report["results"]]
+            else:
+                results_to_print = ["unused"]
 
-    print
+            for results_type in results_to_print:
+                print "\n%s  %s" % (SPRUCE, results_type)
+                for line in sorted(report["results"][results_type], key=lambda
+                                   s: s.upper()):
+                    print line
 
 
 def build_argparser():
@@ -432,6 +443,7 @@ def run_reports(args):
     # tightly coupled, despite the smell, to arg names.
     requested_reports = [report for report in reports if
                          args_dict[report]]
+
     # If either the --all option has been provided, OR none of the
     # other reports options have been specified, assume user wants all
     # reports (filtering out --remove is handled elsewhere).
@@ -440,21 +452,16 @@ def run_reports(args):
         requested_reports = [report for report in reports]
 
     # Build the reports
-    for report in reports:
-        report_dict = reports[report]
-        print ("\xF0\x9F\x8C\xB2 Building: %s..." %
-                report_dict["heading"])
+    for report_name in requested_reports:
+        report_dict = reports[report_name]
+        print "%s  Building: %s..." % (SPRUCE, report_dict["heading"])
         report_dict["results"] = report_dict["func"]()
 
-    # TODO: This is still very tentative.
-    for report in reports:
-        report_dict = reports[report]
-        if report_dict["results"]:
-            print report
-            for result in report_dict["results"]:
-                print result
-        # TODO: Hasn't been updated yet.
-        #output(result)
+    if not args.ofile:
+        print_output(reports, args.verbose)
+    else:
+        # write_plist_output(reports)
+        pass
 
 
 def main():
