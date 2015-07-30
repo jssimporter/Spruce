@@ -258,6 +258,7 @@ def remove(j, items):
         print "Deleted: %s" % item
 
 
+# TODO: This will be refactored into subreports.
 def report(j, verbose=False):
     """Report on unused packages and scripts.
 
@@ -287,28 +288,6 @@ def report(j, verbose=False):
         output(result_set)
 
     return (unused_packages, unused_scripts)
-
-
-def report_clean(j, verbose=False):
-    """Report on unused packages and scripts, then remove them.
-
-    Populates a set of packages and scripts that are in use, and
-    return the difference with a set of all packages and scripts.
-
-    Prompt user to confirm, then remove all unused scripts and
-    packages.
-    """
-    unused_packages, unused_scripts = report(j, verbose)
-    response = raw_input("Do you want to remove these unused packages? (Y|N) ")
-    if response.upper() == "Y":
-        remove(j, unused_packages)
-    else:
-        print "Skipping package removal."
-    response = raw_input("Do you want to remove these unused scripts? (Y|N) ")
-    if response.upper() == "Y":
-        remove(j, unused_scripts)
-    else:
-        print "Skipping script removal."
 
 
 def load_removal_file(filename):
