@@ -296,6 +296,7 @@ def build_report(containers_with_search_paths, jss_objects):
         #    used
         #    unused
     """
+    # TODO: Update return docs on all reports (Report object).
     used_object_sets = []
     for containers, search in containers_with_search_paths:
         used_object_sets.append({obj.text for container in containers for obj
@@ -429,6 +430,7 @@ def build_computer_groups_report():
     used_groups.update(used_nested_groups)
 
     # TODO: Look for groups with no members as a seperate non-verbose report.
+    results.append(get_empty_groups(full_groups))
 
     report = Report(results, "Computer Group Usage Report")
 
@@ -507,6 +509,13 @@ def get_full_groups_from_names(groups, full_groups):
 def get_names_from_full_objects(objects):
     """Return a list of object names provided list of full objects."""
     return [obj.name for obj in objects]
+
+
+def get_empty_groups(full_groups):
+    """TODO"""
+    groups_with_no_members = {group.name for group in full_groups if
+                              group.findtext("computers/size") == "0"}
+    return Result(groups_with_no_members, True, "Empty Computer Groups")
 
 
 def load_removal_file(filename):
