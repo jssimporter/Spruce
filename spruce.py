@@ -206,6 +206,38 @@ class JSSConnection(object):
         return cls._jss
 
 
+class Result(object):
+    """Encapsulates the metadata and results from a report."""
+
+    def __init__(self, results, verbose, heading):
+        """Init our data structure.
+
+        Args:
+            results: A set of strings of some JSSObject names.
+            include_in_non_verbose: Bool whether or not report will be
+                included in non-verbose output.
+            heading: String heading describing the results.
+        """
+        self.results = results
+        self.include_in_non_verbose = verbose
+        self.heading = heading
+
+
+class Report(object):
+    """Represents a collection of Result objects."""
+
+    def __init__(self, results, heading):
+        """Init our data structure.
+
+        Args:
+            results: An iterable of Result objects to include in the
+                report.
+            heading: String heading describing the report.
+        """
+        self.results = results
+        self.heading = heading
+
+
 def map_jssimporter_prefs(prefs):
     """Convert python-jss preferences to JSSImporter preferences."""
     connection = {}
@@ -258,10 +290,11 @@ def build_report(containers_with_search_paths, jss_objects):
             the containers_with_search_paths.
 
     Returns:
-        A 3-item dict consisting of sets of search-object names with keys:
-            all
-            used
-            unused
+        A list of Result objects.
+        #A 3-item dict consisting of sets of search-object names with keys:
+        #    all
+        #    used
+        #    unused
     """
     used_object_sets = []
     for containers, search in containers_with_search_paths:
@@ -274,15 +307,18 @@ def build_report(containers_with_search_paths, jss_objects):
             used = used.union(used_object_set)
     unused = set(jss_objects).difference(used)
 
-    results = {"all": jss_objects,
-               "used": used,
-               "unused": unused}
+    results = [Result(jss_objects, False, "All"),
+               Result(used, False, "Used"),
+               Result(unused, True, "Unused")]
 
     return results
 
 
 def build_packages_report():
     """Report on package usage.
+
+    Looks for packages which are not installed by any policies or
+    computer configurations.
 
     Returns:
         A 3-item dict consisting of sets of Package names with keys:
@@ -300,12 +336,16 @@ def build_packages_report():
     results = build_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_packages)
+    report = Report(results, "Package Usage Report")
 
-    return results
+    return report
 
 
 def build_scripts_report():
     """Report on script usage.
+
+    Looks for scripts which are not executed by any policies or
+    computer configurations.
 
     Returns:
         A 3-item dict consisting of sets of Script names with keys:
@@ -323,8 +363,150 @@ def build_scripts_report():
     results = build_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_scripts)
+    report = Report(results, "Script Usage Report")
 
+    return report
+
+
+def build_computer_groups_report():
+    """Report on computer groups usage.
+
+    Looks for computer groups with no members. This does not mean
+    they neccessarily are in-need-of-deletion.
+
+    Returns:
+        A 3-item dict consisting of sets of Computer Group names with
+        keys:
+            all
+            policy_used
+            config_used
+            unused
+    """
+    jss_connection = JSSConnection.get()
+    all_policies = jss_connection.Policy().retrieve_all()
+    all_configs = jss_connection.OSXConfigurationProfile().retrieve_all()
+    all_computer_groups = [group.name for group in
+                           jss_connection.ComputerGroup()]
+    policy_xpath = "scope/computer_groups/computer_group/name"
+    config_xpath = "scope/computer_groups/computer_group/name"
+
+    # Build results for groups which aren't scoped.
+    results = build_report(
+        [(all_policies, policy_xpath), (all_configs, config_xpath)],
+        all_computer_groups)
+
+    # More work to be done, since Smart Groups can nest other groups.
+    # We want to remove any groups nested (at any level) within a group
+    # that is used.
+
+    # For convenience, pull out unused and used sets.
+    for result in results:
+        if result.heading == "Unused":
+            unused_groups = result.results
+        if result.heading == "Used":
+            used_groups = result.results
+    full_groups = jss_connection.ComputerGroup().retrieve_all()
+    used_full_group_objects = get_full_groups_from_names(used_groups,
+                                                         full_groups)
+
+    full_used_nested_groups = get_nested_groups(used_full_group_objects,
+                                                full_groups)
+    used_nested_groups = get_names_from_full_objects(full_used_nested_groups)
+
+    # TODO: Remove debug lines.
+    print "DEBUG: Used nested groups to remove from unused groups (intersect)"
+    for g in unused_groups.intersection(used_nested_groups):
+        print g
+    print ("DEBUG: These are the groups found nested within used "
+           "groups (groups to add to used-list).")
+    for g in used_nested_groups:
+        print g
+
+    # Remove the nested groups from the unused list and add to the used.
+    unused_groups.difference_update(used_nested_groups)
+    # There's no harm in doing a union with the nested used groups vs.
+    # adding _just_ the ones removed from unused_groups.
+    used_groups.update(used_nested_groups)
+
+    # TODO: Look for groups with no members as a seperate non-verbose report.
+
+    report = Report(results, "Computer Group Usage Report")
+
+    return report
+
+
+def get_nested_groups(groups, full_groups):
+    """Get all of the groups 'nested' in an iterable of groups.
+
+    A smart group may include other groups with a Computer Group
+    criterion. This function will find all of the groups nested within
+    a provided iterable of jss.ComputerGroup objects (including nested
+    groups that _also_ nest groups).
+
+    Args:
+        groups: An iterable of jss.ComputerGroup objects to search
+            for nested groups within.
+        full_groups: A list of all computer groups. This will hopefully
+            be deprecated once a connection caching procedure is
+            devised.
+
+    Returns:
+        A set of groups nested within the original groups argument.
+    """
+    results = set()
+    for group in groups:
+        # Get the names of any nested groups.
+        nested_groups_names = get_nested_groups_names(group)
+        if nested_groups_names:
+            # Function needs full objects, and criteria only specify
+            # the name, so we need to "convert" names to full objects.
+            nested_groups = get_full_groups_from_names(nested_groups_names,
+                                                       full_groups)
+            # Add the nested groups to the results.
+            results.update(nested_groups)
+            # Recursively look for any groups nested in the nested
+            # groups.
+            results.update(get_nested_groups(nested_groups, full_groups))
+
+        # If no groups are nested, we are done.
     return results
+
+
+def get_nested_groups_names(group):
+    """Get the names of any nested groups in a group, or an empty set.
+
+    Args:
+        group: A jss.ComputerGroup object to search for nested groups.
+
+    Returns:
+        A tuple of the group names nested in the provided group.
+        Returns an empty set if no nested groups are present.
+    """
+    return (
+        criterion.findtext("value")
+        for criterion in group.findall("criteria/criterion") if
+        criterion.findtext("name") == "Computer Group" and
+        criterion.findtext("search_type") == "member of")
+
+
+def get_full_groups_from_names(groups, full_groups):
+    """Given a list a of group names, get the full objects.
+
+    Args:
+        groups: A list of names.
+        full_groups: A list of all jss.ComputerGroup objects
+
+    Returns:
+        A list of jss.ComputerGroup objects corresponding to the names
+        given by the groups argument.
+    """
+    return [full_group for group in groups for full_group in
+            full_groups if full_group.name == group]
+
+
+def get_names_from_full_objects(objects):
+    """Return a list of object names provided list of full objects."""
+    return [obj.name for obj in objects]
 
 
 def load_removal_file(filename):
@@ -347,35 +529,45 @@ def load_removal_file(filename):
     return result_set
 
 
-def print_output(reports, verbose=False):
+def print_output(report, verbose=False):
     """Print report data.
 
     Args:
-        reports: Report dict as constructed in run_reports()
+        reports: List of Report objects
+        #reports: Report dict as constructed in run_reports()
         verbose: Bool, whether to print all results or just unused
             results.
     """
-    for report_name, report in reports.iteritems():
-        if report["results"]:
-            print "%s  %s %s" % (10 * SPRUCE, report["heading"], 50 * SPRUCE)
-            if verbose:
-                results_to_print = [result_type for result_type in
-                                    report["results"]]
-            else:
-                results_to_print = ["unused"]
+    print "%s  %s %s" % (10 * SPRUCE, report.heading, 50 * SPRUCE)
+    for result in report.results:
+        if not result.include_in_non_verbose and not verbose:
+            continue
+        else:
+            print "\n%s  %s" % (SPRUCE, result.heading)
+            for line in sorted(result.results, key=lambda s: s.upper()):
+                print line
 
-            for results_type in results_to_print:
-                print "\n%s  %s" % (SPRUCE, results_type.title())
-                for line in sorted(report["results"][results_type], key=lambda
-                                   s: s.upper()):
-                    print line
+    #for report_name, report in reports.iteritems():
+    #    if report["results"]:
+    #        print "%s  %s %s" % (10 * SPRUCE, report["heading"], 50 * SPRUCE)
+    #        if verbose:
+    #            results_to_print = [result_type for result_type in
+    #                                report["results"]]
+    #        else:
+    #            results_to_print = ["unused"]
 
-            # Cruftiness score
-            cruftiness = (float(len(report["results"]["unused"])) /
-                   len(report["results"]["all"]))
-            print
-            print "Cruftiness is {:.2%}".format(cruftiness)
-            print
+    #        for results_type in results_to_print:
+    #            print "\n%s  %s" % (SPRUCE, results_type.title())
+    #            for line in sorted(report["results"][results_type], key=lambda
+    #                               s: s.upper()):
+    #                print line
+
+    #        # Cruftiness score
+    #        cruftiness = (float(len(report["results"]["unused"])) /
+    #               len(report["results"]["all"]))
+    #        print
+    #        print "Cruftiness is {:.2%}".format(cruftiness)
+    #        print
 
 
 def build_argparser():
@@ -437,10 +629,13 @@ def run_reports(args):
     reports = {}
     reports["packages"] = {"heading": "Package Report",
                            "func": build_packages_report,
-                           "results": {}}
+                           "report": None}
     reports["scripts"] = {"heading": "Scripts Report",
                           "func": build_scripts_report,
-                          "results": {}}
+                          "report": None}
+    reports["computer_groups"] = {"heading": "Computer Groups Report",
+                          "func": build_computer_groups_report,
+                          "report": None}
 
     args_dict = vars(args)
     # Build a list of report key names, requested by user, which are
@@ -459,14 +654,20 @@ def run_reports(args):
     for report_name in requested_reports:
         report_dict = reports[report_name]
         print "%s  Building: %s..." % (SPRUCE, report_dict["heading"])
-        report_dict["results"] = report_dict["func"]()
+        report_dict["report"] = report_dict["func"]()
 
-    if not args.ofile:
-        print
-        print_output(reports, args.verbose)
-    else:
-        # write_plist_output(reports)
-        pass
+    # Output the reports
+    #for report in [reports[report]["report"] for report in reports if
+    #               reports[report]["report"]]:
+    for report in requested_reports:
+        if reports[report]["report"]:
+            report = reports[report]["report"]
+            if not args.ofile:
+                print
+                print_output(report, args.verbose)
+            else:
+                # write_plist_output(reports)
+                pass
 
 
 def main():
