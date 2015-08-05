@@ -490,6 +490,35 @@ def build_policies_report():
     return report
 
 
+def build_config_profiles_report():
+    """Report on computer configuration profile usage.
+
+    Looks for profiles which are not scoped to anything.
+
+    Returns:
+        A Report object.
+    """
+    jss_connection = JSSConnection.get()
+    all_configs = jss_connection.OSXConfigurationProfile().retrieve_all()
+    unscoped_configs = [config.name for config in all_configs if
+                         config.findtext("scope/all_computers") == "false" and
+                         not config.findall("scope/computers/computer") and
+                         not config.findall(
+                             "scope/computer_groups/computer_group") and
+                         not config.findall("scope/buildings/building") and
+                         not config.findall("scope/departments/department")]
+    unscoped = Result(unscoped_configs, True,
+                      "Computer Configuration Profiles not Scoped")
+    unscoped_cruftiness = float(len(unscoped_configs)) / len(all_configs)
+
+    report = Report([unscoped], "Computer Configuration Profile Report",
+                    {"cruftiness": {}})
+    report.metadata["cruftiness"]["Unscoped Policy Cruftiness"] = (
+        unscoped_cruftiness)
+
+    return report
+
+
 def get_nested_groups(groups, full_groups):
     """Get all of the groups 'nested' in an iterable of groups.
 
@@ -649,11 +678,11 @@ def build_argparser():
     phelp = "Generate unused policy report."
     group.add_argument("-t", "--policies", help=phelp,
                         action="store_true")
+    phelp = "Generate unused computer configuration profile report."
+    group.add_argument("-u", "--computer_configuration_profiles", help=phelp,
+                        action="store_true")
     phelp = "Generate unused mobile-device-groups report (Static and Smart)."
     group.add_argument("-r", "--mobile_device_groups", help=phelp,
-                        action="store_true")
-    phelp = "Generate unused configuration-profiles report."
-    group.add_argument("-c", "--configuration_profiles", help=phelp,
                         action="store_true")
     phelp = "Generate unused mobile-device-profiles report."
     group.add_argument("-m", "--mobile_device_configuration_profiles",
@@ -695,6 +724,10 @@ def run_reports(args):
     reports["policies"] = {"heading": "Policy Report",
                           "func": build_policies_report,
                           "report": None}
+    reports["computer_configuration_profiles"] = {
+        "heading": "Computer Configuration Profile Report",
+        "func": build_config_profiles_report,
+        "report": None}
 
     args_dict = vars(args)
     # Build a list of report key names, requested by user, which are
