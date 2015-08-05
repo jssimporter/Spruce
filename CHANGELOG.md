@@ -15,6 +15,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Add cruftiness score, and other metadata.
 - Added Policy report.
 - Added Computer Configuration Profile Report
+- Added Mobile Device Group Report
 
 ## [1.0.1] - 2015-05-04 Chihuahua Spruce
 ### CHANGED

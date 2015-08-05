@@ -332,7 +332,7 @@ def build_report(containers_with_search_paths, jss_objects):
                Result(used, False, "Used"),
                Result(unused, True, "Unused")]
     report = Report(results, "")
-    cruftiness = calculate_cruft(report.get_result_by_name("Unused").result,
+    cruftiness = calculate_cruft(report.get_result_by_name("Unused").results,
         report.get_result_by_name("All").results)
     report.metadata["cruftiness"] = {"Unscoped Object Cruftiness": cruftiness}
 
@@ -393,12 +393,7 @@ def build_computer_groups_report():
     they neccessarily are in-need-of-deletion.
 
     Returns:
-        A 3-item dict consisting of sets of Computer Group names with
-        keys:
-            all
-            policy_used
-            config_used
-            unused
+        A Report object.
     """
     jss_connection = JSSConnection.get()
     all_policies = jss_connection.Policy().retrieve_all()
@@ -412,6 +407,8 @@ def build_computer_groups_report():
     report = build_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_computer_groups)
+
+    report.heading = "Computer Group Usage Report"
 
     # More work to be done, since Smart Groups can nest other groups.
     # We want to remove any groups nested (at any level) within a group
@@ -443,14 +440,95 @@ def build_computer_groups_report():
     # adding _just_ the ones removed from unused_groups.
     used_groups.update(used_nested_groups)
 
-    # TODO: Look for groups with no members as a seperate non-verbose report.
-    report.results.append(get_empty_groups(full_groups))
+    # Recalculate cruftiness
+    unused_cruftiness = calculate_cruft(unused_groups, all_computer_groups)
+    report.metadata["cruftiness"][
+        "Unscoped Object Cruftiness"] = unused_cruftiness
+
+    # Build Empty Groups Report.
+    empty_groups = get_empty_groups(full_groups)
+    report.results.append(empty_groups)
+    # Calculate empty cruftiness.
+    empty_cruftiness = calculate_cruft(empty_groups.results,
+                                       all_computer_groups)
+    report.metadata["cruftiness"]["Empty Group Cruftiness"] = empty_cruftiness
+
+
+    return report
+
+
+def build_mobile_device_groups_report():
+    """Report on mobile device groups usage.
+
+    Looks for mobile device groups with no members. This does not mean
+    they neccessarily are in-need-of-deletion.
+
+    Returns:
+        A Report object.
+    """
+    jss_connection = JSSConnection.get()
+    all_configs = (
+        jss_connection.MobileDeviceConfigurationProfile().retrieve_all())
+    all_provisioning_profiles = (
+        jss_connection.MobileDeviceProvisioningProfile().retrieve_all())
+    all_apps = (
+        jss_connection.MobileDeviceApplication().retrieve_all())
+    all_ebooks = (
+        jss_connection.EBook().retrieve_all())
+    all_mobile_device_groups = [group.name for group in
+                                jss_connection.MobileDeviceGroup()]
+    xpath = "scope/mobile_device_groups/mobile_device_group/name"
+
+    # Build results for groups which aren't scoped.
+    report = build_report([(all_configs, xpath),
+                           (all_provisioning_profiles, xpath),
+                           (all_apps, xpath),
+                           (all_ebooks, xpath)],
+                          all_mobile_device_groups)
+    report.heading = "Mobile Device Group Usage Report"
+
+    # More work to be done, since Smart Groups can nest other groups.
+    # We want to remove any groups nested (at any level) within a group
+    # that is used.
+
+    # For convenience, pull out unused and used sets.
+    unused_groups = report.get_result_by_name("Unused").results
+    used_groups = report.get_result_by_name("Used").results
+    full_groups = jss_connection.MobileDeviceGroup().retrieve_all()
+    used_full_group_objects = get_full_groups_from_names(used_groups,
+                                                         full_groups)
+
+    full_used_nested_groups = get_nested_groups(used_full_group_objects,
+                                                full_groups)
+    used_nested_groups = get_names_from_full_objects(full_used_nested_groups)
+
+    # TODO: Remove debug lines.
+    print "DEBUG: Used nested groups to remove from unused groups (intersect)"
+    for g in unused_groups.intersection(used_nested_groups):
+        print g
+    print ("DEBUG: These are the groups found nested within used "
+           "groups (groups to add to used-list).")
+    for g in used_nested_groups:
+        print g
+
+    # Remove the nested groups from the unused list and add to the used.
+    unused_groups.difference_update(used_nested_groups)
+    # There's no harm in doing a union with the nested used groups vs.
+    # adding _just_ the ones removed from unused_groups.
+    used_groups.update(used_nested_groups)
 
     # Recalculate cruftiness
-    cruftiness = calculate_cruft(unused_groups, all_computer_groups)
+    unused_cruftiness = calculate_cruft(unused_groups,
+                                        all_mobile_device_groups)
+    report.metadata["cruftiness"][
+        "Unscoped Object Cruftiness"] = unused_cruftiness
 
-    report.heading = "Computer Group Usage Report"
-    report.metadata["cruftiness"]["Empty Group Cruftiness"] = cruftiness
+    # Build empty mobile device groups report
+    empty_groups = get_empty_groups(full_groups)
+    report.results.append(empty_groups)
+    empty_cruftiness = calculate_cruft(empty_groups.results,
+                                       all_mobile_device_groups)
+    report.metadata["cruftiness"]["Empty Group Cruftiness"] = empty_cruftiness
 
     return report
 
@@ -579,11 +657,12 @@ def get_full_groups_from_names(groups, full_groups):
 
     Args:
         groups: A list of names.
-        full_groups: A list of all jss.ComputerGroup objects
+        full_groups: A list of all jss.ComputerGroup or
+            jss.MobileDeviceGroup objects.
 
     Returns:
-        A list of jss.ComputerGroup objects corresponding to the names
-        given by the groups argument.
+        A list of jss.ComputerGroup or jss.MobileDeviceGroup objects
+        corresponding to the names given by the groups argument.
     """
     return [full_group for group in groups for full_group in
             full_groups if full_group.name == group]
@@ -596,9 +675,16 @@ def get_names_from_full_objects(objects):
 
 def get_empty_groups(full_groups):
     """TODO"""
+    if type(full_groups[0]) is jss.ComputerGroup:
+        obj_type = ("computers", "Computer")
+    elif type(full_groups[0]) is jss.MobileDeviceGroup:
+        obj_type = ("mobile_devices", "Mobile Device")
+    else:
+        raise TypeError("Incorrect group type.")
     groups_with_no_members = {group.name for group in full_groups if
-                              group.findtext("computers/size") == "0"}
-    return Result(groups_with_no_members, True, "Empty Computer Groups")
+                            group.findtext("%s/size" % obj_type[0]) == "0"}
+    return Result(groups_with_no_members, True,
+                  "Empty %s Groups" % obj_type[1])
 
 
 def calculate_cruft(dividend, divisor):
@@ -737,6 +823,10 @@ def run_reports(args):
     reports["computer_configuration_profiles"] = {
         "heading": "Computer Configuration Profile Report",
         "func": build_config_profiles_report,
+        "report": None}
+    reports["mobile_device_groups"] = {
+        "heading": "Mobile Device Group Report",
+        "func": build_mobile_device_groups_report,
         "report": None}
 
     args_dict = vars(args)
