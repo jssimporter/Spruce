@@ -222,20 +222,43 @@ class Result(object):
         self.include_in_non_verbose = verbose
         self.heading = heading
 
+    def __len__(self):
+        """Return the length of the results list."""
+        return len(self.results)
+
 
 class Report(object):
     """Represents a collection of Result objects."""
 
-    def __init__(self, results, heading):
+    def __init__(self, results, heading, metadata={}):
         """Init our data structure.
 
         Args:
             results: An iterable of Result objects to include in the
                 report.
             heading: String heading describing the report.
+            metadata: Dictionary of other data you want to output. Keys
+                are titlecased and used for output!
         """
         self.results = results
         self.heading = heading
+        self.metadata = metadata
+
+    def get_result_by_name(self, name):
+        """Return a result with argument name.
+
+        Args:
+            name: String name to find in results.
+
+        Returns:
+            A Result object or None.
+        """
+        found = None
+        for result in self.results:
+            if result.heading == name:
+                found = result
+                break
+        return found
 
 
 def map_jssimporter_prefs(prefs):
@@ -290,11 +313,8 @@ def build_report(containers_with_search_paths, jss_objects):
             the containers_with_search_paths.
 
     Returns:
-        A list of Result objects.
-        #A 3-item dict consisting of sets of search-object names with keys:
-        #    all
-        #    used
-        #    unused
+        A Report object with results and "cruftiness" metadata
+        added, but no heading.
     """
     # TODO: Update return docs on all reports (Report object).
     used_object_sets = []
@@ -311,8 +331,12 @@ def build_report(containers_with_search_paths, jss_objects):
     results = [Result(jss_objects, False, "All"),
                Result(used, False, "Used"),
                Result(unused, True, "Unused")]
+    report = Report(results, "")
+    cruftiness = (float(len(report.get_result_by_name("Unused").results)) /
+        len(report.get_result_by_name("All").results))
+    report.metadata["cruftiness"] = cruftiness
 
-    return results
+    return report
 
 
 def build_packages_report():
@@ -322,11 +346,7 @@ def build_packages_report():
     computer configurations.
 
     Returns:
-        A 3-item dict consisting of sets of Package names with keys:
-            all
-            policy_used
-            config_used
-            unused
+        A Report object.
     """
     jss_connection = JSSConnection.get()
     all_policies = jss_connection.Policy().retrieve_all()
@@ -334,10 +354,11 @@ def build_packages_report():
     all_packages = [package.name for package in jss_connection.Package()]
     policy_xpath = "package_configuration/packages/package/name"
     config_xpath = "packages/package/name"
-    results = build_report(
+    report = build_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_packages)
-    report = Report(results, "Package Usage Report")
+
+    report.heading = "Package Usage Report"
 
     return report
 
@@ -349,11 +370,7 @@ def build_scripts_report():
     computer configurations.
 
     Returns:
-        A 3-item dict consisting of sets of Script names with keys:
-            all
-            policy_used
-            config_used
-            unused
+        A Report object.
     """
     jss_connection = JSSConnection.get()
     all_policies = jss_connection.Policy().retrieve_all()
@@ -361,10 +378,10 @@ def build_scripts_report():
     all_scripts = [script.name for script in jss_connection.Script()]
     policy_xpath = "scripts/script/name"
     config_xpath = "scripts/script/name"
-    results = build_report(
+    report = build_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_scripts)
-    report = Report(results, "Script Usage Report")
+    report.heading = "Script Usage Report"
 
     return report
 
@@ -518,6 +535,11 @@ def get_empty_groups(full_groups):
     return Result(groups_with_no_members, True, "Empty Computer Groups")
 
 
+# TODO: Computers
+# Should have an argument for how long the last check-in was
+# Should have a spread shown for OS version
+
+
 def load_removal_file(filename):
     """Get a set of files to remove from a file.
 
@@ -555,28 +577,10 @@ def print_output(report, verbose=False):
             print "\n%s  %s" % (SPRUCE, result.heading)
             for line in sorted(result.results, key=lambda s: s.upper()):
                 print line
-
-    #for report_name, report in reports.iteritems():
-    #    if report["results"]:
-    #        print "%s  %s %s" % (10 * SPRUCE, report["heading"], 50 * SPRUCE)
-    #        if verbose:
-    #            results_to_print = [result_type for result_type in
-    #                                report["results"]]
-    #        else:
-    #            results_to_print = ["unused"]
-
-    #        for results_type in results_to_print:
-    #            print "\n%s  %s" % (SPRUCE, results_type.title())
-    #            for line in sorted(report["results"][results_type], key=lambda
-    #                               s: s.upper()):
-    #                print line
-
-    #        # Cruftiness score
-    #        cruftiness = (float(len(report["results"]["unused"])) /
-    #               len(report["results"]["all"]))
-    #        print
-    #        print "Cruftiness is {:.2%}".format(cruftiness)
-    #        print
+    # TODO: Handle more metadata, better.
+    for metadata in report.metadata:
+        print "\n%s  %s" % (SPRUCE, metadata.title())
+        print "{:.2%}".format(report.metadata[metadata])
 
 
 def build_argparser():

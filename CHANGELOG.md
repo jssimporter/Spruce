@@ -10,6 +10,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Restructured arguments to prevent reporting and removal from happening at the same time.
 - Refactored to support running individual subreports (e.g. `--packages`, `--scripts`).
 - With no arguments, spruce runs as if `--all` had been specified (meaning run all reports).
+- Added cute conifers.
+- Added Computer Group report.
+- Add cruftiness score, and other metadata.
 
 ## [1.0.1] - 2015-05-04 Chihuahua Spruce
 ### CHANGED
