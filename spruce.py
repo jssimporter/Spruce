@@ -332,8 +332,8 @@ def build_report(containers_with_search_paths, jss_objects):
                Result(used, False, "Used"),
                Result(unused, True, "Unused")]
     report = Report(results, "")
-    cruftiness = (float(len(report.get_result_by_name("Unused").results)) /
-        len(report.get_result_by_name("All").results))
+    cruftiness = calculate_cruft(report.get_result_by_name("Unused").result,
+        report.get_result_by_name("All").results)
     report.metadata["cruftiness"] = {"Unscoped Object Cruftiness": cruftiness}
 
     return report
@@ -447,7 +447,7 @@ def build_computer_groups_report():
     report.results.append(get_empty_groups(full_groups))
 
     # Recalculate cruftiness
-    cruftiness = float(len(unused_groups)) / len(all_computer_groups)
+    cruftiness = calculate_cruft(unused_groups, all_computer_groups)
 
     report.heading = "Computer Group Usage Report"
     report.metadata["cruftiness"]["Empty Group Cruftiness"] = cruftiness
@@ -473,12 +473,12 @@ def build_policies_report():
                          not policy.findall("scope/buildings/building") and
                          not policy.findall("scope/departments/department")]
     unscoped = Result(unscoped_policies, True, "Policies not Scoped")
-    unscoped_cruftiness = float(len(unscoped_policies)) / len(all_policies)
+    unscoped_cruftiness = calculate_cruft(unscoped_policies, all_policies)
 
     disabled_policies = [policy.name for policy in all_policies if
                          policy.findtext("general/enabled") == "false"]
     disabled = Result(disabled_policies, True, "Disabled Policies")
-    disabled_cruftiness = float(len(disabled_policies)) / len(all_policies)
+    disabled_cruftiness = calculate_cruft(disabled_policies, all_policies)
 
     report = Report([unscoped, disabled], "Policy Report",
                     {"cruftiness": {}})
@@ -509,7 +509,8 @@ def build_config_profiles_report():
                          not config.findall("scope/departments/department")]
     unscoped = Result(unscoped_configs, True,
                       "Computer Configuration Profiles not Scoped")
-    unscoped_cruftiness = float(len(unscoped_configs)) / len(all_configs)
+    unscoped_cruftiness = calculate_cruft(unscoped_configs, all_configs)
+
 
     report = Report([unscoped], "Computer Configuration Profile Report",
                     {"cruftiness": {}})
@@ -598,6 +599,15 @@ def get_empty_groups(full_groups):
     groups_with_no_members = {group.name for group in full_groups if
                               group.findtext("computers/size") == "0"}
     return Result(groups_with_no_members, True, "Empty Computer Groups")
+
+
+def calculate_cruft(dividend, divisor):
+    """Zero-safe find percentage of a subgroup within a larger group."""
+    if divisor:
+        result = float(len(dividend)) / len(divisor)
+    else:
+        result = 0.0
+    return result
 
 
 # TODO: Computers
