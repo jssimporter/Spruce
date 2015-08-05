@@ -339,6 +339,26 @@ def build_report(containers_with_search_paths, jss_objects):
     return report
 
 
+def build_computers_report(checkin_period=30):
+    """Build a report of out-of-date or unresponsive computers.
+
+    Finds the newest OS version and looks for computers which are out
+    of date. (Builds reports per OS major version and per OS minor
+    version).
+
+    Also, compiles a list of computers which have not checked in for
+    'checkin_period' days.
+    computer configurations.
+
+    Args:
+        checkin_period: Integer number of days since last check-in to
+            include in report. Defaults to 30.
+
+    Returns:
+        A Report object.
+    """
+    pass
+
 def build_packages_report():
     """Report on package usage.
 
@@ -592,7 +612,38 @@ def build_config_profiles_report():
 
     report = Report([unscoped], "Computer Configuration Profile Report",
                     {"cruftiness": {}})
-    report.metadata["cruftiness"]["Unscoped Policy Cruftiness"] = (
+    report.metadata["cruftiness"]["Unscoped Profile Cruftiness"] = (
+        unscoped_cruftiness)
+
+    return report
+
+
+def build_md_config_profiles_report():
+    """Report on mobile device configuration profile usage.
+
+    Looks for profiles which are not scoped to anything.
+
+    Returns:
+        A Report object.
+    """
+    jss_connection = JSSConnection.get()
+    all_configs = (
+        jss_connection.MobileDeviceConfigurationProfile().retrieve_all())
+    unscoped_configs = [config.name for config in all_configs if
+                         config.findtext("scope/all_mobile_devices") == "false" and
+                         not config.findall("scope/mobile_devices/mobile_device") and
+                         not config.findall(
+                             "scope/mobile_device_groups/mobile_device_group") and
+                         not config.findall("scope/buildings/building") and
+                         not config.findall("scope/departments/department")]
+    unscoped = Result(unscoped_configs, True,
+                      "Mobile Device Configuration Profiles not Scoped")
+    unscoped_cruftiness = calculate_cruft(unscoped_configs, all_configs)
+
+
+    report = Report([unscoped], "Mobile Device Configuration Profile Report",
+                    {"cruftiness": {}})
+    report.metadata["cruftiness"]["Unscoped Profile Cruftiness"] = (
         unscoped_cruftiness)
 
     return report
@@ -696,11 +747,6 @@ def calculate_cruft(dividend, divisor):
     return result
 
 
-# TODO: Computers
-# Should have an argument for how long the last check-in was
-# Should have a spread shown for OS version
-
-
 def load_removal_file(filename):
     """Get a set of files to remove from a file.
 
@@ -756,6 +802,10 @@ def build_argparser():
     phelp = ("Include a list of all objects and used objects in addition to "
              "unused objects in reports.")
     parser.add_argument("-v", "--verbose", help=phelp, action="store_true")
+    phelp = ("For computer and mobile device reports, the number of "
+             "days since the last check-in to consider device "
+             "out-of-date.")
+    parser.add_argument("--checkin_period", help=phelp)
 
     group = parser.add_argument_group("Reporting Arguments")
     phelp = ("Output results to OFILE, in plist format (also usable as "
@@ -764,6 +814,8 @@ def build_argparser():
     phelp = ("Generate all reports. With no other arguments, this is "
              "the default.")
     group.add_argument("-a", "--all", help=phelp, action="store_true")
+    phelp = "Generate computer report."
+    group.add_argument("-c", "--computers", help=phelp, action="store_true")
     phelp = "Generate unused package report."
     group.add_argument("-p", "--packages", help=phelp, action="store_true")
     phelp = "Generate unused script report."
@@ -823,6 +875,10 @@ def run_reports(args):
     reports["computer_configuration_profiles"] = {
         "heading": "Computer Configuration Profile Report",
         "func": build_config_profiles_report,
+        "report": None}
+    reports["mobile_device_configuration_profiles"] = {
+        "heading": "Mobile Device Configuration Profile Report",
+        "func": build_md_config_profiles_report,
         "report": None}
     reports["mobile_device_groups"] = {
         "heading": "Mobile Device Group Report",

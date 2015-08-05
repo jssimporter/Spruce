@@ -16,6 +16,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Added Policy report.
 - Added Computer Configuration Profile Report
 - Added Mobile Device Group Report
+- Added Computer Report.
+- Added Mobile Device Configuration Profile Report.
 
 ## [1.0.1] - 2015-05-04 Chihuahua Spruce
 ### CHANGED
