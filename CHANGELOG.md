@@ -13,6 +13,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Added cute conifers.
 - Added Computer Group report.
 - Add cruftiness score, and other metadata.
+- Added Policy report.
 
 ## [1.0.1] - 2015-05-04 Chihuahua Spruce
 ### CHANGED

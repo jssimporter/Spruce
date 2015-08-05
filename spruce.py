@@ -334,7 +334,7 @@ def build_report(containers_with_search_paths, jss_objects):
     report = Report(results, "")
     cruftiness = (float(len(report.get_result_by_name("Unused").results)) /
         len(report.get_result_by_name("All").results))
-    report.metadata["cruftiness"] = cruftiness
+    report.metadata["cruftiness"] = {"Unscoped Object Cruftiness": cruftiness}
 
     return report
 
@@ -409,7 +409,7 @@ def build_computer_groups_report():
     config_xpath = "scope/computer_groups/computer_group/name"
 
     # Build results for groups which aren't scoped.
-    results = build_report(
+    report = build_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_computer_groups)
 
@@ -418,11 +418,8 @@ def build_computer_groups_report():
     # that is used.
 
     # For convenience, pull out unused and used sets.
-    for result in results:
-        if result.heading == "Unused":
-            unused_groups = result.results
-        if result.heading == "Used":
-            used_groups = result.results
+    unused_groups = report.get_result_by_name("Unused").results
+    used_groups = report.get_result_by_name("Used").results
     full_groups = jss_connection.ComputerGroup().retrieve_all()
     used_full_group_objects = get_full_groups_from_names(used_groups,
                                                          full_groups)
@@ -447,9 +444,48 @@ def build_computer_groups_report():
     used_groups.update(used_nested_groups)
 
     # TODO: Look for groups with no members as a seperate non-verbose report.
-    results.append(get_empty_groups(full_groups))
+    report.results.append(get_empty_groups(full_groups))
 
-    report = Report(results, "Computer Group Usage Report")
+    # Recalculate cruftiness
+    cruftiness = float(len(unused_groups)) / len(all_computer_groups)
+
+    report.heading = "Computer Group Usage Report"
+    report.metadata["cruftiness"]["Empty Group Cruftiness"] = cruftiness
+
+    return report
+
+
+def build_policies_report():
+    """Report on policy usage.
+
+    Looks for policies which are not scoped to anything or are disabled.
+
+    Returns:
+        A Report object.
+    """
+    jss_connection = JSSConnection.get()
+    all_policies = jss_connection.Policy().retrieve_all()
+    unscoped_policies = [policy.name for policy in all_policies if
+                         policy.findtext("scope/all_computers") == "false" and
+                         not policy.findall("scope/computers/computer") and
+                         not policy.findall(
+                             "scope/computer_groups/computer_group") and
+                         not policy.findall("scope/buildings/building") and
+                         not policy.findall("scope/departments/department")]
+    unscoped = Result(unscoped_policies, True, "Policies not Scoped")
+    unscoped_cruftiness = float(len(unscoped_policies)) / len(all_policies)
+
+    disabled_policies = [policy.name for policy in all_policies if
+                         policy.findtext("general/enabled") == "false"]
+    disabled = Result(disabled_policies, True, "Disabled Policies")
+    disabled_cruftiness = float(len(disabled_policies)) / len(all_policies)
+
+    report = Report([unscoped, disabled], "Policy Report",
+                    {"cruftiness": {}})
+    report.metadata["cruftiness"]["Unscoped Policy Cruftiness"] = (
+        unscoped_cruftiness)
+    report.metadata["cruftiness"]["Disabled Policy Cruftiness"] = (
+        disabled_cruftiness)
 
     return report
 
@@ -565,7 +601,6 @@ def print_output(report, verbose=False):
 
     Args:
         reports: List of Report objects
-        #reports: Report dict as constructed in run_reports()
         verbose: Bool, whether to print all results or just unused
             results.
     """
@@ -579,8 +614,13 @@ def print_output(report, verbose=False):
                 print line
     # TODO: Handle more metadata, better.
     for metadata in report.metadata:
-        print "\n%s  %s" % (SPRUCE, metadata.title())
-        print "{:.2%}".format(report.metadata[metadata])
+        print "\n%s  %s  %s" % (SPRUCE, metadata.title(), SPRUCE)
+        for key, val in report.metadata[metadata].iteritems():
+            print "%s  %s" % (SPRUCE, key.title())
+            if type(val) is float:
+                print "{:.2%}".format(val)
+            else:
+                print "{:.2%}".format(val)
 
 
 def build_argparser():
@@ -605,6 +645,9 @@ def build_argparser():
     group.add_argument("-s", "--scripts", help=phelp, action="store_true")
     phelp = "Generate unused computer-groups report (Static and Smart)."
     group.add_argument("-g", "--computer_groups", help=phelp,
+                        action="store_true")
+    phelp = "Generate unused policy report."
+    group.add_argument("-t", "--policies", help=phelp,
                         action="store_true")
     phelp = "Generate unused mobile-device-groups report (Static and Smart)."
     group.add_argument("-r", "--mobile_device_groups", help=phelp,
@@ -648,6 +691,9 @@ def run_reports(args):
                           "report": None}
     reports["computer_groups"] = {"heading": "Computer Groups Report",
                           "func": build_computer_groups_report,
+                          "report": None}
+    reports["policies"] = {"heading": "Policy Report",
+                          "func": build_policies_report,
                           "report": None}
 
     args_dict = vars(args)
