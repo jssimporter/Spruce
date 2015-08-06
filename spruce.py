@@ -839,6 +839,7 @@ def build_argparser():
     parser = argparse.ArgumentParser(
         description=DESCRIPTION,
         formatter_class=argparse.RawDescriptionHelpFormatter)
+    # Global Args
     phelp = ("Include a list of all objects and used objects in addition to "
              "unused objects in reports.")
     parser.add_argument("-v", "--verbose", help=phelp, action="store_true")
@@ -847,35 +848,43 @@ def build_argparser():
              "out-of-date.")
     parser.add_argument("--checkin_period", help=phelp)
 
-    group = parser.add_argument_group("Reporting Arguments")
+    # General Reporting Args
+    general_group = parser.add_argument_group("General Reporting Arguments")
     phelp = ("Output results to OFILE, in plist format (also usable as "
              "input to the --remove option).")
-    group.add_argument("-o", "--ofile", help=phelp)
+    general_group.add_argument("-o", "--ofile", help=phelp)
     phelp = ("Generate all reports. With no other arguments, this is "
              "the default.")
-    group.add_argument("-a", "--all", help=phelp, action="store_true")
+    general_group.add_argument("-a", "--all", help=phelp, action="store_true")
+
+    # Computers
+    group = parser.add_argument_group("Computer Reporting Arguments")
     phelp = "Generate computer report."
     group.add_argument("-c", "--computers", help=phelp, action="store_true")
+    phelp = "Generate unused computer-groups report (Static and Smart)."
+    group.add_argument("-g", "--computer_groups", help=phelp,
+                        action="store_true")
     phelp = "Generate unused package report."
     group.add_argument("-p", "--packages", help=phelp, action="store_true")
     phelp = "Generate unused script report."
     group.add_argument("-s", "--scripts", help=phelp, action="store_true")
-    phelp = "Generate unused computer-groups report (Static and Smart)."
-    group.add_argument("-g", "--computer_groups", help=phelp,
-                        action="store_true")
     phelp = "Generate unused policy report."
     group.add_argument("-t", "--policies", help=phelp,
                         action="store_true")
     phelp = "Generate unused computer configuration profile report."
     group.add_argument("-u", "--computer_configuration_profiles", help=phelp,
                         action="store_true")
+
+    # Mobile Devices
+    md_group = parser.add_argument_group("Mobile Device Reporting Arguments")
     phelp = "Generate unused mobile-device-groups report (Static and Smart)."
-    group.add_argument("-r", "--mobile_device_groups", help=phelp,
+    md_group.add_argument("-r", "--mobile_device_groups", help=phelp,
                         action="store_true")
     phelp = "Generate unused mobile-device-profiles report."
-    group.add_argument("-m", "--mobile_device_configuration_profiles",
+    md_group.add_argument("-m", "--mobile_device_configuration_profiles",
                         help=phelp, action="store_true")
 
+    # Removal Args
     removal_group = parser.add_argument_group("Removal Arguments")
     phelp = ("Remove objects specified in supplied plist REMOVE. If "
              "this option is used, all reporting is skipped. The input "
