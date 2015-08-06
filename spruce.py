@@ -359,6 +359,7 @@ def build_computers_report(checkin_period=30):
     """
     pass
 
+
 def build_packages_report():
     """Report on package usage.
 
@@ -463,14 +464,15 @@ def build_computer_groups_report():
     # Recalculate cruftiness
     unused_cruftiness = calculate_cruft(unused_groups, all_computer_groups)
     report.metadata["cruftiness"][
-        "Unscoped Object Cruftiness"] = unused_cruftiness
+        "Unscoped Computer Group Cruftiness"] = unused_cruftiness
+    # Rename heading too.
+    del(report.metadata["cruftiness"]["Unscoped Object Cruftiness"])
 
     # Build Empty Groups Report.
     empty_groups = get_empty_groups(full_groups)
     report.results.append(empty_groups)
     # Calculate empty cruftiness.
-    empty_cruftiness = calculate_cruft(empty_groups.results,
-                                       all_computer_groups)
+    empty_cruftiness = calculate_cruft(empty_groups, all_computer_groups)
     report.metadata["cruftiness"]["Empty Group Cruftiness"] = empty_cruftiness
 
 
@@ -540,8 +542,10 @@ def build_mobile_device_groups_report():
     # Recalculate cruftiness
     unused_cruftiness = calculate_cruft(unused_groups,
                                         all_mobile_device_groups)
+    # And rename for better output.
     report.metadata["cruftiness"][
-        "Unscoped Object Cruftiness"] = unused_cruftiness
+        "Unscoped Mobile Device Group Cruftiness"] = unused_cruftiness
+    del(report.metadata["cruftiness"]["Unscoped Object Cruftiness"])
 
     # Build empty mobile device groups report
     empty_groups = get_empty_groups(full_groups)
@@ -780,18 +784,47 @@ def print_output(report, verbose=False):
         if not result.include_in_non_verbose and not verbose:
             continue
         else:
-            print "\n%s  %s" % (SPRUCE, result.heading)
+            print "\n%s  %s (%i)" % (
+                SPRUCE, result.heading, len(result.results))
             for line in sorted(result.results, key=lambda s: s.upper()):
-                print line
-    # TODO: Handle more metadata, better.
+                print "\t%s" % line
+
     for metadata in report.metadata:
-        print "\n%s  %s  %s" % (SPRUCE, metadata.title(), SPRUCE)
+        print "\n%s  %s %s" % (SPRUCE, metadata.title(), SPRUCE)
         for key, val in report.metadata[metadata].iteritems():
             print "%s  %s" % (SPRUCE, key.title())
-            if type(val) is float:
-                print "{:.2%}".format(val)
+            if type(val) is float and "CRUFTINESS" in key.upper():
+                print "\t{:.2%}".format(val)
+                print "\tRank: %s" % get_cruftmoji(val)
             else:
-                print "{:.2%}".format(val)
+                print "\t%s" % val
+
+
+def get_cruftmoji(percentage):
+    """Return one of 10 possible emojis depending on how crufty.
+
+    Args:
+        percentage: A float between 0 and 1.
+
+    Returns:
+        An emoji string.
+    """
+    level = [
+        # Master
+        ("\xf0\x9f\x99\x8f \xf0\x9f\x8d\xbb \xf0\x9f\x8d\x95 \xf0\x9f\x91\xbe"
+         "\xf0\x9f\x8d\x95 \xf0\x9f\x8d\xbb \xf0\x9f\x99\x8f"),
+        # Snakes on a Plane
+        "\xf0\x9f\x90\x8d \xf0\x9f\x90\x8d \xe2\x9c\x88\xef\xb8\x8f",
+        # Furry Hat Pizza Party
+        "\xf0\x9f\x8d\x95 \xf0\x9f\x92\x82 \xf0\x9f\x8d\x95",
+        "\xf0\x9f\x91\xbb", # Ghost
+        "\xf0\x9f\x92\xa3", # The Bomb
+        "\xf0\x9f\x90\xa9 \xf0\x9f\x92\xa8", # Poodle Fart
+        "\xf0\x9f\x92\x80", # Skull
+        "\xf0\x9f\x93\xbc", # VHS Cassette
+        "\xf0\x9f\x8c\xb5", # Cactus
+        "\xf0\x9f\x92\xa9"] # Smiling Poo
+    return level[int(percentage * 100) / 10]
 
 
 def build_argparser():
@@ -901,7 +934,8 @@ def run_reports(args):
     # Build the reports
     for report_name in requested_reports:
         report_dict = reports[report_name]
-        print "%s  Building: %s..." % (SPRUCE, report_dict["heading"])
+        print "%s  Building: %s... %s" % (SPRUCE, report_dict["heading"],
+                                           SPRUCE)
         report_dict["report"] = report_dict["func"]()
 
     # Output the reports
