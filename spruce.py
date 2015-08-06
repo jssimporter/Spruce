@@ -380,6 +380,7 @@ def build_computers_report(check_in_period, **kwargs):
     jss_connection = JSSConnection.get()
     all_computers = jss_connection.Computer().retrieve_all()
 
+    # TODO: Remove when not needed.
     pdb.set_trace()
     # Convert check_in_period to a DateTime object.
     out_of_date = datetime.datetime.now() - datetime.timedelta(check_in_period)
