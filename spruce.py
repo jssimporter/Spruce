@@ -334,7 +334,12 @@ def build_report(containers_with_search_paths, jss_objects):
     report = Report(results, "")
     cruftiness = calculate_cruft(report.get_result_by_name("Unused").results,
         report.get_result_by_name("All").results)
-    report.metadata["cruftiness"] = {"Unscoped Object Cruftiness": cruftiness}
+    # TODO: This is absurd. I can do better.
+    # Use the xpath's second to last part to determine object type.
+    obj_type = containers_with_search_paths[0][1].rsplit(
+            "/")[-2].replace("_", " ").title()
+    report.metadata["cruftiness"] = {"Unscoped %s Cruftiness" % obj_type:
+                                     cruftiness}
 
     return report
 
@@ -466,14 +471,15 @@ def build_computer_groups_report():
     report.metadata["cruftiness"][
         "Unscoped Computer Group Cruftiness"] = unused_cruftiness
     # Rename heading too.
-    del(report.metadata["cruftiness"]["Unscoped Object Cruftiness"])
+    #del(report.metadata["cruftiness"]["Unscoped Object Cruftiness"])
 
     # Build Empty Groups Report.
     empty_groups = get_empty_groups(full_groups)
     report.results.append(empty_groups)
     # Calculate empty cruftiness.
     empty_cruftiness = calculate_cruft(empty_groups, all_computer_groups)
-    report.metadata["cruftiness"]["Empty Group Cruftiness"] = empty_cruftiness
+    report.metadata["cruftiness"][
+        "Empty Computer Group Cruftiness"] = empty_cruftiness
 
 
     return report
@@ -545,14 +551,15 @@ def build_mobile_device_groups_report():
     # And rename for better output.
     report.metadata["cruftiness"][
         "Unscoped Mobile Device Group Cruftiness"] = unused_cruftiness
-    del(report.metadata["cruftiness"]["Unscoped Object Cruftiness"])
+    #del(report.metadata["cruftiness"]["Unscoped Object Cruftiness"])
 
     # Build empty mobile device groups report
     empty_groups = get_empty_groups(full_groups)
     report.results.append(empty_groups)
     empty_cruftiness = calculate_cruft(empty_groups.results,
                                        all_mobile_device_groups)
-    report.metadata["cruftiness"]["Empty Group Cruftiness"] = empty_cruftiness
+    report.metadata["cruftiness"][
+        "Empty Mobile Device Group Cruftiness"] = empty_cruftiness
 
     return report
 
