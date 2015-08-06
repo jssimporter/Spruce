@@ -21,8 +21,10 @@
 
 
 import argparse
+import datetime
 from distutils.version import StrictVersion
 import os.path
+import pdb
 import sys
 
 # pylint: disable=no-name-in-module
@@ -205,6 +207,8 @@ class JSSConnection(object):
             cls.setup()
         return cls._jss
 
+    # TODO: Add caching property.
+
 
 class Result(object):
     """Encapsulates the metadata and results from a report."""
@@ -344,7 +348,7 @@ def build_report(containers_with_search_paths, jss_objects):
     return report
 
 
-def build_computers_report(checkin_period=30):
+def build_computers_report(check_in_period, **kwargs):
     """Build a report of out-of-date or unresponsive computers.
 
     Finds the newest OS version and looks for computers which are out
@@ -352,20 +356,46 @@ def build_computers_report(checkin_period=30):
     version).
 
     Also, compiles a list of computers which have not checked in for
-    'checkin_period' days.
+    'check_in_period' days.
     computer configurations.
 
     Args:
-        checkin_period: Integer number of days since last check-in to
+        check_in_period: Integer number of days since last check-in to
             include in report. Defaults to 30.
 
     Returns:
         A Report object.
     """
-    pass
+    # Validate check_in_period argument.
+    if not check_in_period:
+        check_in_period = 30
+    if not isinstance(check_in_period, int):
+        try:
+            check_in_period = int(check_in_period)
+        except ValueError:
+            print "Incorrect check-in period given. Setting to 30."
+            check_in_period = 30
 
 
-def build_packages_report():
+    jss_connection = JSSConnection.get()
+    all_computers = jss_connection.Computer().retrieve_all()
+
+    pdb.set_trace()
+    # Convert check_in_period to a DateTime object.
+    out_of_date = datetime.datetime.now() - datetime.timedelta(check_in_period)
+    # Example computer contact time format: 2015-08-06 10:46:51
+    # TODO: You really need to unroll this beast.
+    out_of_date_computers = [
+        (computer.name, computer.findtext("general/last_contact_time")) for
+        computer in all_computers if
+        computer.findtext("general/last_contact_time") and
+        datetime.datetime.strptime(
+            computer.findtext("general/last_contact_time"),
+            "%Y-%m-%d %H:%M:%S") < out_of_date]
+    print out_of_date_computers
+
+
+def build_packages_report(**kwargs):
     """Report on package usage.
 
     Looks for packages which are not installed by any policies or
@@ -389,7 +419,7 @@ def build_packages_report():
     return report
 
 
-def build_scripts_report():
+def build_scripts_report(**kwargs):
     """Report on script usage.
 
     Looks for scripts which are not executed by any policies or
@@ -412,7 +442,7 @@ def build_scripts_report():
     return report
 
 
-def build_computer_groups_report():
+def build_computer_groups_report(**kwargs):
     """Report on computer groups usage.
 
     Looks for computer groups with no members. This does not mean
@@ -428,6 +458,7 @@ def build_computer_groups_report():
                            jss_connection.ComputerGroup()]
     policy_xpath = "scope/computer_groups/computer_group/name"
     config_xpath = "scope/computer_groups/computer_group/name"
+    # TODO: Need to also handle exclusions.
 
     # Build results for groups which aren't scoped.
     report = build_report(
@@ -481,11 +512,10 @@ def build_computer_groups_report():
     report.metadata["cruftiness"][
         "Empty Computer Group Cruftiness"] = empty_cruftiness
 
-
     return report
 
 
-def build_mobile_device_groups_report():
+def build_mobile_device_groups_report(**kwargs):
     """Report on mobile device groups usage.
 
     Looks for mobile device groups with no members. This does not mean
@@ -564,7 +594,7 @@ def build_mobile_device_groups_report():
     return report
 
 
-def build_policies_report():
+def build_policies_report(**kwargs):
     """Report on policy usage.
 
     Looks for policies which are not scoped to anything or are disabled.
@@ -599,7 +629,7 @@ def build_policies_report():
     return report
 
 
-def build_config_profiles_report():
+def build_config_profiles_report(**kwargs):
     """Report on computer configuration profile usage.
 
     Looks for profiles which are not scoped to anything.
@@ -629,7 +659,7 @@ def build_config_profiles_report():
     return report
 
 
-def build_md_config_profiles_report():
+def build_md_config_profiles_report(**kwargs):
     """Report on mobile device configuration profile usage.
 
     Looks for profiles which are not scoped to anything.
@@ -846,7 +876,7 @@ def build_argparser():
     phelp = ("For computer and mobile device reports, the number of "
              "days since the last check-in to consider device "
              "out-of-date.")
-    parser.add_argument("--checkin_period", help=phelp)
+    parser.add_argument("--check_in_period", help=phelp)
 
     # General Reporting Args
     general_group = parser.add_argument_group("General Reporting Arguments")
@@ -908,15 +938,19 @@ def run_reports(args):
         args: parsed argparser namespace object for spruce.
     """
     # Define the types of reports we can accept.
+    # TODO: Roll this data structure into the Reports class.
     reports = {}
+    reports["computers"] = {"heading": "Computer Report",
+                           "func": build_computers_report,
+                           "report": None}
+    reports["computer_groups"] = {"heading": "Computer Groups Report",
+                          "func": build_computer_groups_report,
+                          "report": None}
     reports["packages"] = {"heading": "Package Report",
                            "func": build_packages_report,
                            "report": None}
     reports["scripts"] = {"heading": "Scripts Report",
                           "func": build_scripts_report,
-                          "report": None}
-    reports["computer_groups"] = {"heading": "Computer Groups Report",
-                          "func": build_computer_groups_report,
                           "report": None}
     reports["policies"] = {"heading": "Policy Report",
                           "func": build_policies_report,
@@ -925,6 +959,7 @@ def run_reports(args):
         "heading": "Computer Configuration Profile Report",
         "func": build_config_profiles_report,
         "report": None}
+
     reports["mobile_device_configuration_profiles"] = {
         "heading": "Mobile Device Configuration Profile Report",
         "func": build_md_config_profiles_report,
@@ -952,7 +987,7 @@ def run_reports(args):
         report_dict = reports[report_name]
         print "%s  Building: %s... %s" % (SPRUCE, report_dict["heading"],
                                            SPRUCE)
-        report_dict["report"] = report_dict["func"]()
+        report_dict["report"] = report_dict["func"](**args_dict)
 
     # Output the reports
     #for report in [reports[report]["report"] for report in reports if
