@@ -376,24 +376,34 @@ def build_computers_report(check_in_period, **kwargs):
             print "Incorrect check-in period given. Setting to 30."
             check_in_period = 30
 
-
     jss_connection = JSSConnection.get()
     all_computers = jss_connection.Computer().retrieve_all()
 
     # TODO: Remove when not needed.
-    pdb.set_trace()
+    #pdb.set_trace()
     # Convert check_in_period to a DateTime object.
     out_of_date = datetime.datetime.now() - datetime.timedelta(check_in_period)
     # Example computer contact time format: 2015-08-06 10:46:51
-    # TODO: You really need to unroll this beast.
-    out_of_date_computers = [
-        (computer.name, computer.findtext("general/last_contact_time")) for
-        computer in all_computers if
-        computer.findtext("general/last_contact_time") and
-        datetime.datetime.strptime(
-            computer.findtext("general/last_contact_time"),
-            "%Y-%m-%d %H:%M:%S") < out_of_date]
-    print out_of_date_computers
+    fmt_string = "%Y-%m-%d %H:%M:%S"
+    out_of_date_computers = []
+    for computer in all_computers:
+        last_contact = computer.findtext("general/last_contact_time")
+        if last_contact and datetime.datetime.strptime(
+            last_contact, fmt_string) < out_of_date:
+            out_of_date_computers.append(computer.name)
+    out_of_date_report = Result(
+        out_of_date_computers, True, "Out of Date Computers")
+    report = Report([out_of_date_report], "Computer Report")
+    report.metadata = {"cruftiness": {}}
+
+    out_of_date_cruftiness = calculate_cruft(out_of_date_report.results,
+                                             all_computers)
+    report.metadata["cruftiness"][
+        "Computers Not Checked In Cruftiness"] = out_of_date_cruftiness
+
+    # Report on OS version spread
+
+    return report
 
 
 def build_packages_report(**kwargs):
