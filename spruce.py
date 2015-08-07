@@ -23,8 +23,9 @@
 import argparse
 import datetime
 from distutils.version import StrictVersion
-import os.path
+import os
 import pdb
+import subprocess
 import sys
 
 # pylint: disable=no-name-in-module
@@ -402,6 +403,7 @@ def build_computers_report(check_in_period, **kwargs):
         "Computers Not Checked In Cruftiness"] = out_of_date_cruftiness
 
     # Report on OS version spread
+    # findtext("hardware/os_version")
 
     return report
 
@@ -873,6 +875,36 @@ def get_cruftmoji(percentage):
         "\xf0\x9f\x8c\xb5", # Cactus
         "\xf0\x9f\x92\xa9"] # Smiling Poo
     return level[int(percentage * 100) / 10]
+
+
+def get_terminal_size():
+    """Get the size of the terminal window."""
+    rows, columns = subprocess.check_output(["stty", "size"]).split()
+    return (int(rows), int(columns))
+
+
+def print_histogram(percentage, prefix="\t", heading="", hist_char="#"):
+    """Print a histogram line.
+
+    Args:
+        percentage: Float between 0 and 1 for histogram value.
+        prefix: String to print first. Defaults to '\t'
+        heading: String to print between prefix and histogram. Defaults
+            to a blank string.
+        hist_char: Single character string to use as bar fill. Defaults
+            to '#'.
+    """
+    # Argument checks.
+    if (not all(
+        [isinstance(arg, str) for arg in (prefix, heading, hist_char)]) and
+        not isinstance(percentage, float)):
+        raise ValueError
+
+    preamble = "%s%s: " % (prefix, heading)
+    _, width = get_terminal_size()
+    histogram_width = width - len(preamble)
+    coefficient = int(histogram_width * percentage)
+    print "%s%s" % (preamble, coefficient * hist_char)
 
 
 def build_argparser():
