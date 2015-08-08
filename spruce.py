@@ -454,13 +454,24 @@ def build_mobile_devices_report(check_in_period, **kwargs):
     #fmt_string = "%Y-%m-%dT%H:%M:%S.%f%z"
     out_of_date_mobile_devices = []
     for device in all_mobile_devices:
-        # TODO: Ensure this is the correct datetime to use.
-        # TODO: Unroll the date stuff to be better documented.
-        last_contact = int(device.findtext("general/last_inventory_update_epoch"))
-        print last_contact, str(last_contact)
-        if last_contact and last_contact > 0 and datetime.datetime.fromtimestamp(
-            float(str(last_contact)[:-2])) < out_of_date:
-            out_of_date_mobile_devices.append(device.name)
+        # Mobile devices don't have a 'last_contact_time'. Also, the
+        # inventory time used here is time-since-epoch, since the UTC
+        # time doesn't work until Python 3.4, and the JAMF doesn't
+        # zero-pad their 12-hour hours.
+        search = "general/last_inventory_update_epoch"
+        # Convert to an integer, while protecting against missing
+        # values.
+        epoch = int(device.findtext(search), 0)
+        if epoch > 0:
+            # JAMF's epoch times include fractional seconds as the
+            # final two characters; datetime.fromtimestap won't succeed
+            # with them there, so we convert to str, substring it out,
+            # and convert to a float.
+            last_contact = datetime.datetime.fromtimestamp(
+                float(str(epoch)[:-2]))
+            if last_contact < out_of_date:
+                out_of_date_mobile_devices.append(device.name)
+
     out_of_date_report = Result(
         out_of_date_mobile_devices, True, "Out of Date Mobile Devices")
     report = Report([out_of_date_report], "Mobile Device Report",
@@ -1045,7 +1056,8 @@ def build_argparser():
 
     # Mobile Devices
     phelp = "Generate mobile device report."
-    group.add_argument("-d", "--mobile_devices", help=phelp, action="store_true")
+    group.add_argument("-d", "--mobile_devices", help=phelp,
+                       action="store_true")
     md_group = parser.add_argument_group("Mobile Device Reporting Arguments")
     phelp = "Generate unused mobile-device-groups report (Static and Smart)."
     md_group.add_argument("-r", "--mobile_device_groups", help=phelp,
