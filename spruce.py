@@ -235,15 +235,18 @@ class Result(object):
 class Report(object):
     """Represents a collection of Result objects."""
 
-    def __init__(self, results, heading, metadata={}):
+    def __init__(self, results, heading, metadata):
         """Init our data structure.
 
         Args:
-            results: An iterable of Result objects to include in the
+            results: A list of Result objects to include in the
                 report.
             heading: String heading describing the report.
-            metadata: Dictionary of other data you want to output. Keys
-                are titlecased and used for output!
+            metadata: Dictionary of other data you want to output.
+                key: Heading name.
+                val Another dictionary, with:
+                    key: Subheading name.
+                    val: String of data to print.
         """
         self.results = results
         self.heading = heading
@@ -301,7 +304,7 @@ def remove(j, items):
     #    print "Deleted: %s" % item
 
 
-def build_report(containers_with_search_paths, jss_objects):
+def build_container_report(containers_with_search_paths, jss_objects):
     """Report on the usage of objects contained in container objects.
 
     Find the used and unused jss_objects across a list of containing
@@ -321,7 +324,6 @@ def build_report(containers_with_search_paths, jss_objects):
         A Report object with results and "cruftiness" metadata
         added, but no heading.
     """
-    # TODO: Update return docs on all reports (Report object).
     used_object_sets = []
     for containers, search in containers_with_search_paths:
         used_object_sets.append({obj.text for container in containers for obj
@@ -336,15 +338,16 @@ def build_report(containers_with_search_paths, jss_objects):
     results = [Result(jss_objects, False, "All"),
                Result(used, False, "Used"),
                Result(unused, True, "Unused")]
-    report = Report(results, "")
+    report = Report(results, "", {"Cruftiness": {}})
     cruftiness = calculate_cruft(report.get_result_by_name("Unused").results,
         report.get_result_by_name("All").results)
+    cruft_strings = get_cruft_strings(cruftiness)
     # TODO: This is absurd. I can do better.
     # Use the xpath's second to last part to determine object type.
-    obj_type = containers_with_search_paths[0][1].rsplit(
+    obj_type = containers_with_search_paths[0][1].split(
             "/")[-2].replace("_", " ").title()
-    report.metadata["cruftiness"] = {"Unscoped %s Cruftiness" % obj_type:
-                                     cruftiness}
+    report.metadata["Cruftiness"] = {"Unscoped %s Cruftiness" % obj_type:
+                                     cruft_strings}
 
     return report
 
@@ -380,8 +383,6 @@ def build_computers_report(check_in_period, **kwargs):
     jss_connection = JSSConnection.get()
     all_computers = jss_connection.Computer().retrieve_all()
 
-    # TODO: Remove when not needed.
-    #pdb.set_trace()
     # Convert check_in_period to a DateTime object.
     out_of_date = datetime.datetime.now() - datetime.timedelta(check_in_period)
     # Example computer contact time format: 2015-08-06 10:46:51
@@ -394,16 +395,27 @@ def build_computers_report(check_in_period, **kwargs):
             out_of_date_computers.append(computer.name)
     out_of_date_report = Result(
         out_of_date_computers, True, "Out of Date Computers")
-    report = Report([out_of_date_report], "Computer Report")
-    report.metadata = {"cruftiness": {}}
+    report = Report([out_of_date_report], "Computer Report",
+                    {"Cruftiness": {}})
 
     out_of_date_cruftiness = calculate_cruft(out_of_date_report.results,
                                              all_computers)
-    report.metadata["cruftiness"][
-        "Computers Not Checked In Cruftiness"] = out_of_date_cruftiness
+    report.metadata["Cruftiness"]["Computers Not Checked In Cruftiness"] = (
+        get_cruft_strings(out_of_date_cruftiness))
 
     # Report on OS version spread
-    # findtext("hardware/os_version")
+    # Build a list of all versions.
+    all_computers_versions = [computer.findtext("hardware/os_version") for
+                              computer in all_computers if
+                              computer.findtext("hardware/os_name") == (
+                                  "Mac OS X")]
+    versions_present = set(all_computers_versions)
+    version_counts = {version: all_computers_versions.count(version) for
+                      version in versions_present}
+    total = len(all_computers)
+    strings = get_histogram_strings(version_counts, padding=8)
+    count_dict = {"OS X Version Histogram (%s)" % total: strings}
+    report.metadata["Version Spread"] = count_dict
 
     return report
 
@@ -423,7 +435,7 @@ def build_packages_report(**kwargs):
     all_packages = [package.name for package in jss_connection.Package()]
     policy_xpath = "package_configuration/packages/package/name"
     config_xpath = "packages/package/name"
-    report = build_report(
+    report = build_container_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_packages)
 
@@ -447,9 +459,10 @@ def build_scripts_report(**kwargs):
     all_scripts = [script.name for script in jss_connection.Script()]
     policy_xpath = "scripts/script/name"
     config_xpath = "scripts/script/name"
-    report = build_report(
+    report = build_container_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_scripts)
+
     report.heading = "Script Usage Report"
 
     return report
@@ -474,7 +487,7 @@ def build_computer_groups_report(**kwargs):
     # TODO: Need to also handle exclusions.
 
     # Build results for groups which aren't scoped.
-    report = build_report(
+    report = build_container_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_computer_groups)
 
@@ -512,18 +525,16 @@ def build_computer_groups_report(**kwargs):
 
     # Recalculate cruftiness
     unused_cruftiness = calculate_cruft(unused_groups, all_computer_groups)
-    report.metadata["cruftiness"][
-        "Unscoped Computer Group Cruftiness"] = unused_cruftiness
-    # Rename heading too.
-    #del(report.metadata["cruftiness"]["Unscoped Object Cruftiness"])
+    report.metadata["Cruftiness"]["Unscoped Computer Group Cruftiness"] = (
+        get_cruft_strings(unused_cruftiness))
 
     # Build Empty Groups Report.
     empty_groups = get_empty_groups(full_groups)
     report.results.append(empty_groups)
     # Calculate empty cruftiness.
     empty_cruftiness = calculate_cruft(empty_groups, all_computer_groups)
-    report.metadata["cruftiness"][
-        "Empty Computer Group Cruftiness"] = empty_cruftiness
+    report.metadata["Cruftiness"]["Empty Computer Group Cruftiness"] = (
+        get_cruft_strings(empty_cruftiness))
 
     return report
 
@@ -551,11 +562,12 @@ def build_mobile_device_groups_report(**kwargs):
     xpath = "scope/mobile_device_groups/mobile_device_group/name"
 
     # Build results for groups which aren't scoped.
-    report = build_report([(all_configs, xpath),
-                           (all_provisioning_profiles, xpath),
-                           (all_apps, xpath),
-                           (all_ebooks, xpath)],
-                          all_mobile_device_groups)
+    report = build_container_report(
+        [(all_configs, xpath),
+         (all_provisioning_profiles, xpath),
+         (all_apps, xpath),
+         (all_ebooks, xpath)],
+        all_mobile_device_groups)
     report.heading = "Mobile Device Group Usage Report"
 
     # More work to be done, since Smart Groups can nest other groups.
@@ -592,17 +604,18 @@ def build_mobile_device_groups_report(**kwargs):
     unused_cruftiness = calculate_cruft(unused_groups,
                                         all_mobile_device_groups)
     # And rename for better output.
-    report.metadata["cruftiness"][
-        "Unscoped Mobile Device Group Cruftiness"] = unused_cruftiness
-    #del(report.metadata["cruftiness"]["Unscoped Object Cruftiness"])
+    report.metadata["Cruftiness"][
+        "Unscoped Mobile Device Group Cruftiness"] = (
+            get_cruft_strings(unused_cruftiness))
 
     # Build empty mobile device groups report
     empty_groups = get_empty_groups(full_groups)
     report.results.append(empty_groups)
     empty_cruftiness = calculate_cruft(empty_groups.results,
                                        all_mobile_device_groups)
-    report.metadata["cruftiness"][
-        "Empty Mobile Device Group Cruftiness"] = empty_cruftiness
+    report.metadata["Cruftiness"][
+        "Empty Mobile Device Group Cruftiness"] = (
+            get_cruft_strings(empty_cruftiness))
 
     return report
 
@@ -633,11 +646,11 @@ def build_policies_report(**kwargs):
     disabled_cruftiness = calculate_cruft(disabled_policies, all_policies)
 
     report = Report([unscoped, disabled], "Policy Report",
-                    {"cruftiness": {}})
-    report.metadata["cruftiness"]["Unscoped Policy Cruftiness"] = (
-        unscoped_cruftiness)
-    report.metadata["cruftiness"]["Disabled Policy Cruftiness"] = (
-        disabled_cruftiness)
+                    {"Cruftiness": {}})
+    report.metadata["Cruftiness"]["Unscoped Policy Cruftiness"] = (
+        get_cruft_strings(unscoped_cruftiness))
+    report.metadata["Cruftiness"]["Disabled Policy Cruftiness"] = (
+        get_cruft_strings(disabled_cruftiness))
 
     return report
 
@@ -665,9 +678,9 @@ def build_config_profiles_report(**kwargs):
 
 
     report = Report([unscoped], "Computer Configuration Profile Report",
-                    {"cruftiness": {}})
-    report.metadata["cruftiness"]["Unscoped Profile Cruftiness"] = (
-        unscoped_cruftiness)
+                    {"Cruftiness": {}})
+    report.metadata["Cruftiness"]["Unscoped Profile Cruftiness"] = (
+        get_cruft_strings(unscoped_cruftiness))
 
     return report
 
@@ -696,9 +709,9 @@ def build_md_config_profiles_report(**kwargs):
 
 
     report = Report([unscoped], "Mobile Device Configuration Profile Report",
-                    {"cruftiness": {}})
-    report.metadata["cruftiness"]["Unscoped Profile Cruftiness"] = (
-        unscoped_cruftiness)
+                    {"Cruftiness": {}})
+    report.metadata["Cruftiness"]["Unscoped Profile Cruftiness"] = (
+        get_cruft_strings(unscoped_cruftiness))
 
     return report
 
@@ -825,7 +838,7 @@ def print_output(report, verbose=False):
     """Print report data.
 
     Args:
-        reports: List of Report objects
+        reports: Report object.
         verbose: Bool, whether to print all results or just unused
             results.
     """
@@ -839,15 +852,12 @@ def print_output(report, verbose=False):
             for line in sorted(result.results, key=lambda s: s.upper()):
                 print "\t%s" % line
 
-    for metadata in report.metadata:
-        print "\n%s  %s %s" % (SPRUCE, metadata.title(), SPRUCE)
-        for key, val in report.metadata[metadata].iteritems():
-            print "%s  %s" % (SPRUCE, key.title())
-            if type(val) is float and "CRUFTINESS" in key.upper():
-                print "\t{:.2%}".format(val)
-                print "\tRank: %s" % get_cruftmoji(val)
-            else:
-                print "\t%s" % val
+    for heading, subsection in report.metadata.iteritems():
+        print "\n%s  %s %s" % (SPRUCE, heading, SPRUCE)
+        for subheading, strings in subsection.iteritems():
+            print "%s  %s" % (SPRUCE, subheading)
+            for line in strings:
+                print "\t%s" % line
 
 
 def get_cruftmoji(percentage):
@@ -877,34 +887,51 @@ def get_cruftmoji(percentage):
     return level[int(percentage * 100) / 10]
 
 
+def get_cruft_strings(cruft):
+    """Generate a list of strings for cruft reports."""
+    return ["{:.2%}".format(cruft), "Rank: %s" % get_cruftmoji(cruft)]
+
+
 def get_terminal_size():
     """Get the size of the terminal window."""
     rows, columns = subprocess.check_output(["stty", "size"]).split()
     return (int(rows), int(columns))
 
 
-def print_histogram(percentage, prefix="\t", heading="", hist_char="#"):
-    """Print a histogram line.
+def get_histogram_strings(data, padding=0, hist_char="#"):
+    """Generate a horizontal text histogram.
+
+    Given a dictionary of items, generate a list of column aligned,
+    padded strings.
 
     Args:
-        percentage: Float between 0 and 1 for histogram value.
-        prefix: String to print first. Defaults to '\t'
-        heading: String to print between prefix and histogram. Defaults
-            to a blank string.
+        percentage: Dict with
+            key: string heading/name
+            val: Float between 0 and 1 for histogram value.
+        padding: int number of characters to subtract from max bar
+            size. Defaults to zero. (If you intend on indenting, the
+            indent level should be specified to make sure large bars
+            don't overflow the length of the terminal.
         hist_char: Single character string to use as bar fill. Defaults
             to '#'.
+    Returns:
+        List of strings ready to print.
     """
-    # Argument checks.
-    if (not all(
-        [isinstance(arg, str) for arg in (prefix, heading, hist_char)]) and
-        not isinstance(percentage, float)):
-        raise ValueError
-
-    preamble = "%s%s: " % (prefix, heading)
+    max_key_width, max_val_width = max([(len(key), len(str(val))) for key, val
+                                        in data.iteritems()])
+    osx_clients = sum(data.values())
     _, width = get_terminal_size()
-    histogram_width = width - len(preamble)
-    coefficient = int(histogram_width * percentage)
-    print "%s%s" % (preamble, coefficient * hist_char)
+    # Find the length we have left for the histogram bars.
+    # Magic number 4 is the _(): parts of the string.
+    histogram_width = width - padding - max_key_width - max_val_width - 4
+    result = []
+    for key, val in data.iteritems():
+        preamble = "{:>{max_key}} ({:>{max_val}}): ".format(
+            key, val, max_key=max_key_width, max_val=max_val_width)
+        percentage = float(val) / osx_clients
+        bar = int(percentage * histogram_width) * hist_char
+        result.append(preamble + bar)
+    return result
 
 
 def build_argparser():
@@ -1023,27 +1050,28 @@ def run_reports(args):
     # reports (filtering out --remove is handled elsewhere).
     if args.all or not requested_reports:
         # Replace report list with all known report names.
+        # TODO: THis is dumb... Just puts the name in so I can later
+        # pull it again with dict.
         requested_reports = [report for report in reports]
 
     # Build the reports
+    results = []
     for report_name in requested_reports:
         report_dict = reports[report_name]
         print "%s  Building: %s... %s" % (SPRUCE, report_dict["heading"],
-                                           SPRUCE)
-        report_dict["report"] = report_dict["func"](**args_dict)
+                                          SPRUCE)
+        func = reports[report_name]["func"]
+        results.append(func(**args_dict))
 
     # Output the reports
-    #for report in [reports[report]["report"] for report in reports if
-    #               reports[report]["report"]]:
-    for report in requested_reports:
-        if reports[report]["report"]:
-            report = reports[report]["report"]
-            if not args.ofile:
-                print
-                print_output(report, args.verbose)
-            else:
-                # write_plist_output(reports)
-                pass
+    for report in results:
+        if not args.ofile:
+            print
+            print_output(report, args.verbose)
+        else:
+            # TODO: Implement. And, should this be just one or the other?
+            # write_plist_output(reports)
+            pass
 
 
 def main():
