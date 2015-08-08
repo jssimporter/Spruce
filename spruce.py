@@ -356,12 +356,10 @@ def build_computers_report(check_in_period, **kwargs):
     """Build a report of out-of-date or unresponsive computers.
 
     Finds the newest OS version and looks for computers which are out
-    of date. (Builds reports per OS major version and per OS minor
-    version).
+    of date. (Builds a histogram of installed OS versions).
 
     Also, compiles a list of computers which have not checked in for
     'check_in_period' days.
-    computer configurations.
 
     Args:
         check_in_period: Integer number of days since last check-in to
@@ -415,6 +413,76 @@ def build_computers_report(check_in_period, **kwargs):
     total = len(all_computers)
     strings = get_histogram_strings(version_counts, padding=8)
     count_dict = {"OS X Version Histogram (%s)" % total: strings}
+    report.metadata["Version Spread"] = count_dict
+
+    return report
+
+
+def build_mobile_devices_report(check_in_period, **kwargs):
+    """Build a report of out-of-date or unresponsive mobile devices.
+
+    Finds the newest OS version and looks for devices which are out
+    of date. (Builds histogram of all installed versions).
+
+    Also, compiles a list of devices which have not checked in for
+    'check_in_period' days.
+
+    Args:
+        check_in_period: Integer number of days since last check-in to
+            include in report. Defaults to 30.
+
+    Returns:
+        A Report object.
+    """
+    # Validate check_in_period argument.
+    if not check_in_period:
+        check_in_period = 30
+    if not isinstance(check_in_period, int):
+        try:
+            check_in_period = int(check_in_period)
+        except ValueError:
+            print "Incorrect check-in period given. Setting to 30."
+            check_in_period = 30
+
+    jss_connection = JSSConnection.get()
+    all_mobile_devices = jss_connection.MobileDevice().retrieve_all()
+
+    # Convert check_in_period to a DateTime object.
+    out_of_date = datetime.datetime.now() - datetime.timedelta(check_in_period)
+    # Example mobile device time format:Friday, August 07 2015 at 3:51 PM
+    # 2015-08-07T15:51:06.980-0400
+    #fmt_string = "%Y-%m-%dT%H:%M:%S.%f%z"
+    out_of_date_mobile_devices = []
+    for device in all_mobile_devices:
+        # TODO: Ensure this is the correct datetime to use.
+        # TODO: Unroll the date stuff to be better documented.
+        last_contact = int(device.findtext("general/last_inventory_update_epoch"))
+        print last_contact, str(last_contact)
+        if last_contact and last_contact > 0 and datetime.datetime.fromtimestamp(
+            float(str(last_contact)[:-2])) < out_of_date:
+            out_of_date_mobile_devices.append(device.name)
+    out_of_date_report = Result(
+        out_of_date_mobile_devices, True, "Out of Date Mobile Devices")
+    report = Report([out_of_date_report], "Mobile Device Report",
+                    {"Cruftiness": {}})
+
+    out_of_date_cruftiness = calculate_cruft(out_of_date_report.results,
+                                             all_mobile_devices)
+    report.metadata["Cruftiness"][
+        "Mobile Devices Not Checked In Cruftiness"] = (
+            get_cruft_strings(out_of_date_cruftiness))
+
+    # Report on OS version spread
+    # Build a list of all versions.
+    all_devices_versions = [device.findtext("general/os_version") for device
+                             in all_mobile_devices]
+    versions_present = set(all_devices_versions)
+    version_counts = {version: all_devices_versions.count(version) for
+                      version in versions_present}
+    total = len(all_mobile_devices)
+    strings = get_histogram_strings(version_counts, padding=8)
+    count_dict = {"iOS Version Histogram (%s)" % total: strings}
+    # TODO: Need to sort versions.
     report.metadata["Version Spread"] = count_dict
 
     return report
@@ -976,6 +1044,8 @@ def build_argparser():
                         action="store_true")
 
     # Mobile Devices
+    phelp = "Generate mobile device report."
+    group.add_argument("-d", "--mobile_devices", help=phelp, action="store_true")
     md_group = parser.add_argument_group("Mobile Device Reporting Arguments")
     phelp = "Generate unused mobile-device-groups report (Static and Smart)."
     md_group.add_argument("-r", "--mobile_device_groups", help=phelp,
@@ -1012,6 +1082,9 @@ def run_reports(args):
     reports = {}
     reports["computers"] = {"heading": "Computer Report",
                            "func": build_computers_report,
+                           "report": None}
+    reports["mobile_devices"] = {"heading": "Mobile Device Report",
+                           "func": build_mobile_devices_report,
                            "report": None}
     reports["computer_groups"] = {"heading": "Computer Groups Report",
                           "func": build_computer_groups_report,
