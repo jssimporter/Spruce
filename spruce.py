@@ -405,13 +405,17 @@ def build_computers_report(check_in_period, **kwargs):
     # Build a list of all versions.
     all_computers_versions = [computer.findtext("hardware/os_version") for
                               computer in all_computers if
-                              computer.findtext("hardware/os_name") == (
-                                  "Mac OS X")]
+                              computer.findtext("hardware/os_name") ==
+                              ("Mac OS X")]
     versions_present = set(all_computers_versions)
     version_counts = {version: all_computers_versions.count(version) for
                       version in versions_present}
+
+    if "" in version_counts:
+        version_counts["No Version Inventoried"] = version_counts.pop("")
+
     total = len(all_computers)
-    strings = get_histogram_strings(version_counts, padding=8)
+    strings = sorted(get_histogram_strings(version_counts, padding=8))
     count_dict = {"OS X Version Histogram (%s)" % total: strings}
     report.metadata["Version Spread"] = count_dict
 
@@ -465,7 +469,7 @@ def build_mobile_devices_report(check_in_period, **kwargs):
         if epoch > 0:
             # JAMF's epoch times include fractional seconds as the
             # final two characters; datetime.fromtimestap won't succeed
-            # with them there, so we convert to str, substring it out,
+            # with them there, so we convert to str, slice it out,
             # and convert to a float.
             last_contact = datetime.datetime.fromtimestamp(
                 float(str(epoch)[:-2]))
@@ -485,15 +489,18 @@ def build_mobile_devices_report(check_in_period, **kwargs):
 
     # Report on OS version spread
     # Build a list of all versions.
-    all_devices_versions = [device.findtext("general/os_version") for device
-                             in all_mobile_devices]
+    all_devices_versions = [device.findtext("general/os_version") for device in
+                            all_mobile_devices]
     versions_present = set(all_devices_versions)
     version_counts = {version: all_devices_versions.count(version) for
                       version in versions_present}
+
+    if "" in version_counts:
+        version_counts["No Version Inventoried"] = version_counts.pop("")
+
     total = len(all_mobile_devices)
-    strings = get_histogram_strings(version_counts, padding=8)
+    strings = sorted(get_histogram_strings(version_counts, padding=8))
     count_dict = {"iOS Version Histogram (%s)" % total: strings}
-    # TODO: Need to sort versions.
     report.metadata["Version Spread"] = count_dict
 
     return report
