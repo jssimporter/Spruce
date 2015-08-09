@@ -984,7 +984,7 @@ def get_histogram_strings(data, padding=0, hist_char="#"):
     padded strings.
 
     Args:
-        percentage: Dict with
+        data: Dict with
             key: string heading/name
             val: Float between 0 and 1 for histogram value.
         padding: int number of characters to subtract from max bar
@@ -1042,29 +1042,28 @@ def build_argparser():
     group.add_argument("-c", "--computers", help=phelp, action="store_true")
     phelp = "Generate unused computer-groups report (Static and Smart)."
     group.add_argument("-g", "--computer_groups", help=phelp,
-                        action="store_true")
+                       action="store_true")
     phelp = "Generate unused package report."
     group.add_argument("-p", "--packages", help=phelp, action="store_true")
     phelp = "Generate unused script report."
     group.add_argument("-s", "--scripts", help=phelp, action="store_true")
     phelp = "Generate unused policy report."
-    group.add_argument("-t", "--policies", help=phelp,
-                        action="store_true")
+    group.add_argument("-t", "--policies", help=phelp, action="store_true")
     phelp = "Generate unused computer configuration profile report."
     group.add_argument("-u", "--computer_configuration_profiles", help=phelp,
-                        action="store_true")
+                       action="store_true")
 
     # Mobile Devices
-    phelp = "Generate mobile device report."
-    group.add_argument("-d", "--mobile_devices", help=phelp,
-                       action="store_true")
     md_group = parser.add_argument_group("Mobile Device Reporting Arguments")
+    phelp = "Generate mobile device report."
+    md_group.add_argument("-d", "--mobile_devices", help=phelp,
+                          action="store_true")
     phelp = "Generate unused mobile-device-groups report (Static and Smart)."
     md_group.add_argument("-r", "--mobile_device_groups", help=phelp,
-                        action="store_true")
+                          action="store_true")
     phelp = "Generate unused mobile-device-profiles report."
     md_group.add_argument("-m", "--mobile_device_configuration_profiles",
-                        help=phelp, action="store_true")
+                          help=phelp, action="store_true")
 
     # Removal Args
     removal_group = parser.add_argument_group("Removal Arguments")
