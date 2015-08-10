@@ -1128,7 +1128,7 @@ def fix_version_counts(version_counts):
     return version_counts
 
 
-def get_histogram_strings(data, padding=0, hist_char="#"):
+def get_histogram_strings(data, padding=0, hist_char="\xf0\x9f\x8d\x95"):
     """Generate a horizontal text histogram.
 
     Given a dictionary of items, generate a list of column aligned,
@@ -1159,7 +1159,7 @@ def get_histogram_strings(data, padding=0, hist_char="#"):
         preamble = "{:>{max_key}} ({:>{max_val}}): ".format(
             key, val, max_key=max_key_width, max_val=max_val_width)
         percentage = float(val) / osx_clients
-        histogram_bar = int(percentage * histogram_width) * hist_char
+        histogram_bar = int(percentage * histogram_width + 1) * hist_char
         result.append(preamble + histogram_bar)
     return result
 
