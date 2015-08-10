@@ -628,12 +628,16 @@ def build_computer_groups_report(**kwargs):
     all_computer_groups = [group.name for group in
                            jss_connection.ComputerGroup()]
     policy_xpath = "scope/computer_groups/computer_group/name"
+    policy_exclusions_xpath = (
+        "scope/exclusions/computer_groups/computer_group/name")
     config_xpath = "scope/computer_groups/computer_group/name"
-    # TODO: Need to also handle exclusions.
+    config_exclusions_xpath = (
+        "scope/exclusions/computer_groups/computer_group/name")
 
     # Build results for groups which aren't scoped.
     report = build_container_report(
-        [(all_policies, policy_xpath), (all_configs, config_xpath)],
+        [(all_policies, policy_xpath), (all_policies, policy_exclusions_xpath),
+        (all_configs, config_xpath), (all_configs, config_exclusions_xpath)],
         all_computer_groups)
 
     report.heading = "Computer Group Usage Report"
@@ -696,13 +700,16 @@ def build_device_groups_report(**kwargs):
     all_mobile_device_groups = [group.name for group in
                                 jss_connection.MobileDeviceGroup()]
     xpath = "scope/mobile_device_groups/mobile_device_group/name"
+    exclusion_xpath = (
+        "scope/exclusions/mobile_device_groups/mobile_device_group/name")
 
     # Build results for groups which aren't scoped.
     report = build_container_report(
-        [(all_configs, xpath),
+        [(all_configs, xpath), (all_configs, exclusion_xpath),
          (all_provisioning_profiles, xpath),
-         (all_apps, xpath),
-         (all_ebooks, xpath)],
+         (all_provisioning_profiles, exclusion_xpath),
+         (all_apps, xpath), (all_apps, exclusion_xpath),
+         (all_ebooks, xpath), (all_ebooks, exclusion_xpath)],
         all_mobile_device_groups)
     report.heading = "Mobile Device Group Usage Report"
 
