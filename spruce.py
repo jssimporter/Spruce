@@ -1118,14 +1118,17 @@ def fix_version_counts(version_counts):
     Returns:
         The updated version_counts dict.
     """
+    result = {}
     for version in version_counts:
         if version.count(".") < 2 and version != "":
             updated_version = "%s.0" % version
-            version_counts[updated_version] = version_counts.pop(version)
-    if "" in version_counts:
-        version_counts["No Version Inventoried"] = version_counts.pop("")
+        else:
+            updated_version = version
+        result[updated_version] = version_counts[version]
+    if "" in result:
+        result["No Version Inventoried"] = result.pop("")
 
-    return version_counts
+    return result
 
 
 def get_histogram_strings(data, padding=0, hist_char="\xf0\x9f\x8d\x95"):
