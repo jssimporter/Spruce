@@ -717,7 +717,6 @@ def build_device_groups_report(**kwargs):
     used_full_group_objects = get_full_groups_from_names(used_groups,
                                                          full_groups)
 
-    # TODO: This looks for nested COMPUTER groups.
     full_used_nested_groups = get_nested_groups(used_full_group_objects,
                                                 full_groups)
     used_nested_groups = get_names_from_full_objects(full_used_nested_groups)
@@ -737,7 +736,6 @@ def build_device_groups_report(**kwargs):
             get_cruft_strings(unused_cruftiness))
 
     # Build empty mobile device groups report
-    # TODO: This looks for empty COMPUTER groups...
     empty_groups = get_empty_groups(full_groups)
     report.results.append(empty_groups)
     empty_cruftiness = calculate_cruft(empty_groups.results,
@@ -896,8 +894,8 @@ def get_nested_groups_names(group):
     return (
         criterion.findtext("value")
         for criterion in group.findall("criteria/criterion") if
-        criterion.findtext("name") == "Computer Group" and
-        criterion.findtext("search_type") == "member of")
+        criterion.findtext("name") in ("Computer Group", "Mobile Device Group")
+        and criterion.findtext("search_type") == "member of")
 
 
 def get_full_groups_from_names(groups, full_groups):
