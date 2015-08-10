@@ -15,8 +15,69 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """spruce.py
-#TODO: Put usage in.
+usage: spruce.py [-h] [-v] [--check_in_period CHECK_IN_PERIOD] [-o OFILE] [-a]
+                 [-c] [-g] [-p] [-s] [-t] [-u] [-d] [-r] [-m]
+                 [--remove REMOVE]
 
+Spruce is a tool to help you clean up your filthy JSS.
+
+Using the various reporting options, you can see unused packages, scripts,
+computer groups, configuration profiles, mobile device groups, and mobile
+device configuration profiles.
+
+Reports are by default output to stdout, and may optionally be output as
+a plist for later use in automated removal.
+
+Spruce uses configured AutoPkg/JSSImporter settings first. If those are
+missing, Spruce falls back to python-jss settings.
+
+The recommended workflow is to begin by running the reports you find
+interesting. After becoming familiar with the scale of unused things,
+reports can be output with the -o/--ofile option. This file can then be
+edited down to include only those things which you wish to remove.
+Finally, pass this filename as an option to the --remove argument to
+remove the specified objects.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -v, --verbose         Include a list of all objects and used objects in
+                        addition to unused objects in reports.
+  --check_in_period CHECK_IN_PERIOD
+                        For computer and mobile device reports, the number of
+                        days since the last check-in to consider device out-
+                        of-date.
+
+General Reporting Arguments:
+  -o OFILE, --ofile OFILE
+                        Output results to OFILE, in plist format (also usable
+                        as input to the --remove option).
+  -a, --all             Generate all reports. With no other arguments, this is
+                        the default.
+
+Computer Reporting Arguments:
+  -c, --computers       Generate computer report.
+  -g, --computer_groups
+                        Generate unused computer-groups report (Static and
+                        Smart).
+  -p, --packages        Generate unused package report.
+  -s, --scripts         Generate unused script report.
+  -t, --policies        Generate unused policy report.
+  -u, --computer_configuration_profiles
+                        Generate unused computer configuration profile report.
+
+Mobile Device Reporting Arguments:
+  -d, --mobile_devices  Generate mobile device report.
+  -r, --mobile_device_groups
+                        Generate unused mobile-device-groups report (Static
+                        and Smart).
+  -m, --mobile_device_configuration_profiles
+                        Generate unused mobile-device-profiles report.
+
+Removal Arguments:
+  --remove REMOVE       Remove objects specified in supplied plist REMOVE. If
+                        this option is used, all reporting is skipped. The
+                        input file is most easily created by editing the
+                        results of a report with the -o/--ofile option.
 """
 
 
@@ -208,8 +269,6 @@ class JSSConnection(object):
             cls.setup()
         return cls._jss
 
-    # TODO: Add caching property.
-
 
 class Result(object):
     """Encapsulates the metadata and results from a report."""
@@ -342,7 +401,7 @@ def build_container_report(containers_with_search_paths, jss_objects):
     cruftiness = calculate_cruft(report.get_result_by_name("Unused").results,
                                  report.get_result_by_name("All").results)
     cruft_strings = get_cruft_strings(cruftiness)
-    # TODO: This is absurd. I can do better.
+
     # Use the xpath's second to last part to determine object type.
     obj_type = containers_with_search_paths[0][1].split(
         "/")[-2].replace("_", " ").title()
@@ -658,6 +717,7 @@ def build_device_groups_report(**kwargs):
     used_full_group_objects = get_full_groups_from_names(used_groups,
                                                          full_groups)
 
+    # TODO: This looks for nested COMPUTER groups.
     full_used_nested_groups = get_nested_groups(used_full_group_objects,
                                                 full_groups)
     used_nested_groups = get_names_from_full_objects(full_used_nested_groups)
@@ -677,6 +737,7 @@ def build_device_groups_report(**kwargs):
             get_cruft_strings(unused_cruftiness))
 
     # Build empty mobile device groups report
+    # TODO: This looks for empty COMPUTER groups...
     empty_groups = get_empty_groups(full_groups)
     report.results.append(empty_groups)
     empty_cruftiness = calculate_cruft(empty_groups.results,
@@ -861,7 +922,15 @@ def get_names_from_full_objects(objects):
 
 
 def get_empty_groups(full_groups):
-    """TODO"""
+    """Return all computer groups with no members as a Result.
+
+    Args:
+        full_groups: list of all computer groups from jss; i.e.
+            jss_connection.ComputerGroup().retrieve_all()
+
+    Returns:
+        Result object.
+    """
     if isinstance(full_groups[0], jss.ComputerGroup):
         obj_type = ("computers", "Computer")
     elif isinstance(full_groups[0], jss.MobileDeviceGroup):
