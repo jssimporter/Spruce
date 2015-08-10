@@ -1021,8 +1021,9 @@ def get_cruftmoji(percentage):
         "\xf0\x9f\x92\x80", # Skull
         "\xf0\x9f\x93\xbc", # VHS Cassette
         "\xf0\x9f\x8c\xb5", # Cactus
-        "\xf0\x9f\x92\xa9"] # Smiling Poo
-    return level[int(percentage * 100) / 10]
+        "\xf0\x9f\x92\xa9", # Smiling Poo
+        "\xf0\x9f\x92\xa9 " * 3] # Smiling Poo (For 100%)
+    return level[int(percentage * 10)]
 
 
 def get_cruft_strings(cruft):
