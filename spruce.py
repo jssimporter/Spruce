@@ -340,12 +340,12 @@ def build_container_report(containers_with_search_paths, jss_objects):
                Result(unused, True, "Unused")]
     report = Report(results, "", {"Cruftiness": {}})
     cruftiness = calculate_cruft(report.get_result_by_name("Unused").results,
-        report.get_result_by_name("All").results)
+                                 report.get_result_by_name("All").results)
     cruft_strings = get_cruft_strings(cruftiness)
     # TODO: This is absurd. I can do better.
     # Use the xpath's second to last part to determine object type.
     obj_type = containers_with_search_paths[0][1].split(
-            "/")[-2].replace("_", " ").title()
+        "/")[-2].replace("_", " ").title()
     report.metadata["Cruftiness"] = {"Unscoped %s Cruftiness" % obj_type:
                                      cruft_strings}
 
@@ -388,8 +388,8 @@ def build_computers_report(check_in_period, **kwargs):
     out_of_date_computers = []
     for computer in all_computers:
         last_contact = computer.findtext("general/last_contact_time")
-        if last_contact and datetime.datetime.strptime(
-            last_contact, fmt_string) < out_of_date:
+        strptime = datetime.datetime.strptime
+        if last_contact and strptime(last_contact, fmt_string) < out_of_date:
             out_of_date_computers.append(computer.name)
     out_of_date_report = Result(
         out_of_date_computers, True, "Out of Date Computers")
@@ -594,15 +594,6 @@ def build_computer_groups_report(**kwargs):
                                                 full_groups)
     used_nested_groups = get_names_from_full_objects(full_used_nested_groups)
 
-    # TODO: Remove debug lines.
-    print "DEBUG: Used nested groups to remove from unused groups (intersect)"
-    for g in unused_groups.intersection(used_nested_groups):
-        print g
-    print ("DEBUG: These are the groups found nested within used "
-           "groups (groups to add to used-list).")
-    for g in used_nested_groups:
-        print g
-
     # Remove the nested groups from the unused list and add to the used.
     unused_groups.difference_update(used_nested_groups)
     # There's no harm in doing a union with the nested used groups vs.
@@ -625,7 +616,7 @@ def build_computer_groups_report(**kwargs):
     return report
 
 
-def build_mobile_device_groups_report(**kwargs):
+def build_device_groups_report(**kwargs):
     """Report on mobile device groups usage.
 
     Looks for mobile device groups with no members. This does not mean
@@ -670,15 +661,6 @@ def build_mobile_device_groups_report(**kwargs):
     full_used_nested_groups = get_nested_groups(used_full_group_objects,
                                                 full_groups)
     used_nested_groups = get_names_from_full_objects(full_used_nested_groups)
-
-    # TODO: Remove debug lines.
-    print "DEBUG: Used nested groups to remove from unused groups (intersect)"
-    for g in unused_groups.intersection(used_nested_groups):
-        print g
-    print ("DEBUG: These are the groups found nested within used "
-           "groups (groups to add to used-list).")
-    for g in used_nested_groups:
-        print g
 
     # Remove the nested groups from the unused list and add to the used.
     unused_groups.difference_update(used_nested_groups)
@@ -752,12 +734,12 @@ def build_config_profiles_report(**kwargs):
     jss_connection = JSSConnection.get()
     all_configs = jss_connection.OSXConfigurationProfile().retrieve_all()
     unscoped_configs = [config.name for config in all_configs if
-                         config.findtext("scope/all_computers") == "false" and
-                         not config.findall("scope/computers/computer") and
-                         not config.findall(
-                             "scope/computer_groups/computer_group") and
-                         not config.findall("scope/buildings/building") and
-                         not config.findall("scope/departments/department")]
+                        config.findtext("scope/all_computers") == "false" and
+                        not config.findall("scope/computers/computer") and
+                        not config.findall("scope/computer_groups/"
+                                           "computer_group") and
+                        not config.findall("scope/buildings/building") and
+                        not config.findall("scope/departments/department")]
     unscoped = Result(unscoped_configs, True,
                       "Computer Configuration Profiles not Scoped")
     unscoped_cruftiness = calculate_cruft(unscoped_configs, all_configs)
@@ -783,12 +765,13 @@ def build_md_config_profiles_report(**kwargs):
     all_configs = (
         jss_connection.MobileDeviceConfigurationProfile().retrieve_all())
     unscoped_configs = [config.name for config in all_configs if
-                         config.findtext("scope/all_mobile_devices") == "false" and
-                         not config.findall("scope/mobile_devices/mobile_device") and
-                         not config.findall(
-                             "scope/mobile_device_groups/mobile_device_group") and
-                         not config.findall("scope/buildings/building") and
-                         not config.findall("scope/departments/department")]
+                        config.findtext("scope/all_mobile_devices") ==
+                        "false" and not
+                        config.findall("scope/mobile_devices/mobile_device")
+                        and not config.findall(
+                            "scope/mobile_device_groups/mobile_device_group")
+                        and not config.findall("scope/buildings/building") and
+                        not config.findall("scope/departments/department")]
     unscoped = Result(unscoped_configs, True,
                       "Mobile Device Configuration Profiles not Scoped")
     unscoped_cruftiness = calculate_cruft(unscoped_configs, all_configs)
@@ -879,14 +862,14 @@ def get_names_from_full_objects(objects):
 
 def get_empty_groups(full_groups):
     """TODO"""
-    if type(full_groups[0]) is jss.ComputerGroup:
+    if isinstance(full_groups[0], jss.ComputerGroup):
         obj_type = ("computers", "Computer")
-    elif type(full_groups[0]) is jss.MobileDeviceGroup:
+    elif isinstance(full_groups[0], jss.MobileDeviceGroup):
         obj_type = ("mobile_devices", "Mobile Device")
     else:
         raise TypeError("Incorrect group type.")
     groups_with_no_members = {group.name for group in full_groups if
-                            group.findtext("%s/size" % obj_type[0]) == "0"}
+                              group.findtext("%s/size" % obj_type[0]) == "0"}
     return Result(groups_with_no_members, True,
                   "Empty %s Groups" % obj_type[1])
 
@@ -1015,8 +998,8 @@ def get_histogram_strings(data, padding=0, hist_char="#"):
         preamble = "{:>{max_key}} ({:>{max_val}}): ".format(
             key, val, max_key=max_key_width, max_val=max_val_width)
         percentage = float(val) / osx_clients
-        bar = int(percentage * histogram_width) * hist_char
-        result.append(preamble + bar)
+        histogram_bar = int(percentage * histogram_width) * hist_char
+        result.append(preamble + histogram_bar)
     return result
 
 
@@ -1099,14 +1082,14 @@ def run_reports(args):
     # TODO: Roll this data structure into the Reports class.
     reports = {}
     reports["computers"] = {"heading": "Computer Report",
-                           "func": build_computers_report,
-                           "report": None}
+                            "func": build_computers_report,
+                            "report": None}
     reports["mobile_devices"] = {"heading": "Mobile Device Report",
-                           "func": build_mobile_devices_report,
-                           "report": None}
+                                 "func": build_mobile_devices_report,
+                                 "report": None}
     reports["computer_groups"] = {"heading": "Computer Groups Report",
-                          "func": build_computer_groups_report,
-                          "report": None}
+                                  "func": build_computer_groups_report,
+                                  "report": None}
     reports["packages"] = {"heading": "Package Report",
                            "func": build_packages_report,
                            "report": None}
@@ -1114,8 +1097,8 @@ def run_reports(args):
                           "func": build_scripts_report,
                           "report": None}
     reports["policies"] = {"heading": "Policy Report",
-                          "func": build_policies_report,
-                          "report": None}
+                           "func": build_policies_report,
+                           "report": None}
     reports["computer_configuration_profiles"] = {
         "heading": "Computer Configuration Profile Report",
         "func": build_config_profiles_report,
@@ -1127,7 +1110,7 @@ def run_reports(args):
         "report": None}
     reports["mobile_device_groups"] = {
         "heading": "Mobile Device Group Report",
-        "func": build_mobile_device_groups_report,
+        "func": build_device_groups_report,
         "report": None}
 
     args_dict = vars(args)
