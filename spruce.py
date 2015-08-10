@@ -481,8 +481,7 @@ def build_computers_report(check_in_period, **kwargs):
     version_counts = {version: all_computers_versions.count(version) for
                       version in versions_present}
 
-    if "" in version_counts:
-        version_counts["No Version Inventoried"] = version_counts.pop("")
+    version_counts = fix_version_counts(version_counts)
 
     total = len(all_computers)
     strings = sorted(get_histogram_strings(version_counts, padding=8))
@@ -576,8 +575,7 @@ def build_mobile_devices_report(check_in_period, **kwargs):
     version_counts = {version: all_devices_versions.count(version) for
                       version in versions_present}
 
-    if "" in version_counts:
-        version_counts["No Version Inventoried"] = version_counts.pop("")
+    version_counts = fix_version_counts(version_counts)
 
     total = len(all_mobile_devices)
     strings = sorted(get_histogram_strings(version_counts, padding=8))
@@ -1105,6 +1103,31 @@ def get_terminal_size():
     return (int(rows), int(columns))
 
 
+def fix_version_counts(version_counts):
+    """Fix blank version names and append a .0 to too-short versions.
+
+    The JSS sometimes inventories an OS Version of "", so give a more
+    meaningful title to that situation.
+
+    Also, iOS versions exist currently like "8.4", which sorts higher
+    than "8.1.3".
+
+    Args:
+        version_counts: Dict of key: version name val: Count of clients.
+
+    Returns:
+        The updated version_counts dict.
+    """
+    for version in version_counts:
+        if version.count(".") < 2 and version != "":
+            updated_version = "%s.0" % version
+            version_counts[updated_version] = version_counts.pop(version)
+    if "" in version_counts:
+        version_counts["No Version Inventoried"] = version_counts.pop("")
+
+    return version_counts
+
+
 def get_histogram_strings(data, padding=0, hist_char="#"):
     """Generate a horizontal text histogram.
 
@@ -1124,8 +1147,8 @@ def get_histogram_strings(data, padding=0, hist_char="#"):
     Returns:
         List of strings ready to print.
     """
-    max_key_width, max_val_width = max([(len(key), len(str(val))) for key, val
-                                        in data.iteritems()])
+    max_key_width = max([len(key) for key in data])
+    max_val_width = max([len(str(val)) for val in data.values()])
     osx_clients = sum(data.values())
     _, width = get_terminal_size()
     # Find the length we have left for the histogram bars.
