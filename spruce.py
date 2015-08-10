@@ -460,6 +460,17 @@ def build_computers_report(check_in_period, **kwargs):
     report.metadata["Cruftiness"]["Computers Not Checked In Cruftiness"] = (
         get_cruft_strings(out_of_date_cruftiness))
 
+    # Report on computers with no group membership (i.e. "orphans").
+    orphaned_computers = [computer.name for computer in all_computers if
+                          has_no_group_membership(computer)]
+    orphan_report = Result(orphaned_computers, True,
+                           "Computers With no Group Membership")
+    report.results.append(orphan_report)
+    orphan_cruftiness = calculate_cruft(orphan_report.results, all_computers)
+    report.metadata["Cruftiness"][
+        "Computers With no Group Membership Cruftiness"] = (
+        get_cruft_strings(orphan_cruftiness))
+
     # Report on OS version spread
     # Build a list of all versions.
     all_computers_versions = [computer.findtext("hardware/os_version") for
@@ -479,7 +490,6 @@ def build_computers_report(check_in_period, **kwargs):
     report.metadata["Version Spread"] = count_dict
 
     return report
-
 
 def build_mobile_devices_report(check_in_period, **kwargs):
     """Build a report of out-of-date or unresponsive mobile devices.
@@ -545,6 +555,18 @@ def build_mobile_devices_report(check_in_period, **kwargs):
     report.metadata["Cruftiness"][
         "Mobile Devices Not Checked In Cruftiness"] = (
             get_cruft_strings(out_of_date_cruftiness))
+
+    # Report on devices with no group membership (i.e. "orphans").
+    orphaned_devices = [device.name for device in all_mobile_devices if
+                          has_no_group_membership(device)]
+    orphan_report = Result(orphaned_devices, True,
+                           "Mobile Devices With no Group Membership")
+    report.results.append(orphan_report)
+    orphan_cruftiness = calculate_cruft(orphan_report.results,
+                                        all_mobile_devices)
+    report.metadata["Cruftiness"][
+        "Mobile Devices With no Group Membership Cruftiness"] = (
+        get_cruft_strings(orphan_cruftiness))
 
     # Report on OS version spread
     # Build a list of all versions.
@@ -946,6 +968,47 @@ def get_empty_groups(full_groups):
                               group.findtext("%s/size" % obj_type[0]) == "0"}
     return Result(groups_with_no_members, True,
                   "Empty %s Groups" % obj_type[1])
+
+
+def has_no_group_membership(device):
+    """Test whether a computer or mobile device belongs to any groups.
+
+    This test does not count membership in the default smart groups:
+        "All Managed Clients",
+        "All Managed Servers",
+        "All Managed iPads",
+        "All Managed iPhones",
+        "All Managed iPod touches"
+
+    Args:
+        device: A jss.Computer or jss.MobileDevice object.
+
+    Returns:
+        Bool.
+    """
+    excluded_groups = ("All Managed Clients",
+                       "All Managed Servers",
+                       "All Managed iPads",
+                       "All Managed iPhones",
+                       "All Managed iPod touches")
+    if isinstance(device, jss.Computer):
+        xpath = "groups_accounts/computer_group_memberships/group"
+        group_membership = [group.text for group in device.findall(xpath) if
+                            not group.text in excluded_groups]
+    elif isinstance(device, jss.MobileDevice):
+        xpath = "mobile_device_groups/mobile_device_group"
+        group_membership = [group.findtext("name") for group in
+                            device.findall(xpath) if not group.findtext("name")
+                            in excluded_groups]
+    else:
+        raise TypeError
+
+    if group_membership:
+        result = False
+    else:
+        result = True
+
+    return result
 
 
 def calculate_cruft(dividend, divisor):
