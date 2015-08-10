@@ -438,7 +438,8 @@ def build_computers_report(check_in_period, **kwargs):
             check_in_period = 30
 
     jss_connection = JSSConnection.get()
-    all_computers = jss_connection.Computer().retrieve_all()
+    all_computers = jss_connection.Computer().retrieve_all(
+        subset=["general", "hardware", "groups_accounts"])
 
     # Convert check_in_period to a DateTime object.
     out_of_date = datetime.datetime.now() - datetime.timedelta(check_in_period)
@@ -518,6 +519,10 @@ def build_mobile_devices_report(check_in_period, **kwargs):
 
     jss_connection = JSSConnection.get()
     all_mobile_devices = jss_connection.MobileDevice().retrieve_all()
+    # This doesn't currently work. The subset is not actually named
+    # after the tag name.
+    #all_mobile_devices = jss_connection.MobileDevice().retrieve_all(
+    #    subset=["general", "mobile_device_groups"])
 
     # Convert check_in_period to a DateTime object.
     out_of_date = datetime.datetime.now() - datetime.timedelta(check_in_period)
@@ -595,7 +600,10 @@ def build_packages_report(**kwargs):
         A Report object.
     """
     jss_connection = JSSConnection.get()
-    all_policies = jss_connection.Policy().retrieve_all()
+    # We have to support the functioning subset and the (hopefully) fixed
+    # future subset name.
+    all_policies = jss_connection.Policy().retrieve_all(
+        subset=["general", "package_configuration", "packages"])
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
     all_packages = [package.name for package in jss_connection.Package()]
     policy_xpath = "package_configuration/packages/package/name"
@@ -619,7 +627,8 @@ def build_scripts_report(**kwargs):
         A Report object.
     """
     jss_connection = JSSConnection.get()
-    all_policies = jss_connection.Policy().retrieve_all()
+    all_policies = jss_connection.Policy().retrieve_all(
+        subset=["general", "scripts"])
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
     all_scripts = [script.name for script in jss_connection.Script()]
     policy_xpath = "scripts/script/name"
@@ -643,8 +652,10 @@ def build_computer_groups_report(**kwargs):
         A Report object.
     """
     jss_connection = JSSConnection.get()
-    all_policies = jss_connection.Policy().retrieve_all()
-    all_configs = jss_connection.OSXConfigurationProfile().retrieve_all()
+    all_policies = jss_connection.Policy().retrieve_all(
+        subset=["general", "scope"])
+    all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
+        subset=["general", "scope"])
     all_computer_groups = [group.name for group in
                            jss_connection.ComputerGroup()]
     policy_xpath = "scope/computer_groups/computer_group/name"
@@ -710,13 +721,16 @@ def build_device_groups_report(**kwargs):
     """
     jss_connection = JSSConnection.get()
     all_configs = (
-        jss_connection.MobileDeviceConfigurationProfile().retrieve_all())
+        jss_connection.MobileDeviceConfigurationProfile().retrieve_all(
+        subset=["general", "scope"]))
     all_provisioning_profiles = (
-        jss_connection.MobileDeviceProvisioningProfile().retrieve_all())
+        jss_connection.MobileDeviceProvisioningProfile().retrieve_all(
+        subset=["general", "scope"]))
     all_apps = (
-        jss_connection.MobileDeviceApplication().retrieve_all())
+        jss_connection.MobileDeviceApplication().retrieve_all(
+        subset=["general", "scope"]))
     all_ebooks = (
-        jss_connection.EBook().retrieve_all())
+        jss_connection.EBook().retrieve_all(subset=["general", "scope"]))
     all_mobile_device_groups = [group.name for group in
                                 jss_connection.MobileDeviceGroup()]
     xpath = "scope/mobile_device_groups/mobile_device_group/name"
@@ -783,7 +797,8 @@ def build_policies_report(**kwargs):
         A Report object.
     """
     jss_connection = JSSConnection.get()
-    all_policies = jss_connection.Policy().retrieve_all()
+    all_policies = jss_connection.Policy().retrieve_all(
+        subset=["general", "scope"])
     unscoped_policies = [policy.name for policy in all_policies if
                          policy.findtext("scope/all_computers") == "false" and
                          not policy.findall("scope/computers/computer") and
@@ -818,7 +833,8 @@ def build_config_profiles_report(**kwargs):
         A Report object.
     """
     jss_connection = JSSConnection.get()
-    all_configs = jss_connection.OSXConfigurationProfile().retrieve_all()
+    all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
+        subset=["general", "scope"])
     unscoped_configs = [config.name for config in all_configs if
                         config.findtext("scope/all_computers") == "false" and
                         not config.findall("scope/computers/computer") and
@@ -849,7 +865,8 @@ def build_md_config_profiles_report(**kwargs):
     """
     jss_connection = JSSConnection.get()
     all_configs = (
-        jss_connection.MobileDeviceConfigurationProfile().retrieve_all())
+        jss_connection.MobileDeviceConfigurationProfile().retrieve_all(
+        subset=["general", "scope"]))
     unscoped_configs = [config.name for config in all_configs if
                         config.findtext("scope/all_mobile_devices") ==
                         "false" and not
