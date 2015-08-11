@@ -518,11 +518,8 @@ def build_mobile_devices_report(check_in_period, **kwargs):
             check_in_period = 30
 
     jss_connection = JSSConnection.get()
-    all_mobile_devices = jss_connection.MobileDevice().retrieve_all()
-    # This doesn't currently work. The subset is not actually named
-    # after the tag name.
-    #all_mobile_devices = jss_connection.MobileDevice().retrieve_all(
-    #    subset=["general", "mobile_device_groups"])
+    all_mobile_devices = jss_connection.MobileDevice().retrieve_all(
+        subset=["general", "mobile_device_groups", "mobiledevicegroups"])
 
     # Convert check_in_period to a DateTime object.
     out_of_date = datetime.datetime.now() - datetime.timedelta(check_in_period)
