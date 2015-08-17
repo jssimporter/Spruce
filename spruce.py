@@ -82,10 +82,12 @@ Removal Arguments:
 
 
 import argparse
+from collections import Counter, namedtuple
 import datetime
 from distutils.version import StrictVersion
 import os
 import pdb
+import re
 import subprocess
 import sys
 
@@ -472,24 +474,74 @@ def build_computers_report(check_in_period, **kwargs):
         "Computers With no Group Membership Cruftiness"] = (
         get_cruft_strings(orphan_cruftiness))
 
-    # Report on OS version spread
     # Build a list of all versions.
-    all_computers_versions = [computer.findtext("hardware/os_version") for
-                              computer in all_computers if
-                              computer.findtext("hardware/os_name") ==
-                              ("Mac OS X")]
-    versions_present = set(all_computers_versions)
-    version_counts = {version: all_computers_versions.count(version) for
-                      version in versions_present}
-
+    versions, models = [], []
+    for computer in all_computers:
+        if computer.findtext("hardware/os_name") == "Mac OS X":
+            versions.append(computer.findtext(
+                "hardware/os_version", "No Version Inventoried"))
+            models.append("%s / %s" % (
+                computer.findtext("hardware/model", "No Model Inventoried"),
+                computer.findtext("hardware/model_identifier",
+                                  "No Model Identifier Inventoried")))
+    version_counts = Counter(versions)
+    # Standardize version number format.
     version_counts = fix_version_counts(version_counts)
+    model_counts = Counter(models)
 
     total = len(all_computers)
+
+    # Report on OS version spread
     strings = sorted(get_histogram_strings(version_counts, padding=8))
     count_dict = {"OS X Version Histogram (%s)" % total: strings}
     report.metadata["Version Spread"] = count_dict
 
+    # Report on Model Spread
+    # Compare on the model identifier since it is an easy numerical
+    # sort.
+    strings = sorted(get_histogram_strings(model_counts, padding=8),
+                     cmp=model_identifier_cmp)
+    count_dict = {"Hardware Model Histogram (%s)" % total: strings}
+    report.metadata["Model Spread"] = count_dict
+
     return report
+
+
+def model_identifier_cmp(model_string_one, model_string_two):
+    """Compare model identifier strings.
+
+    Args:
+        model_one, model_two: Model string from "modle / model_identifier"
+            concatenation. The identifier string is made up of model
+            name, numeric major, minor version. e.g. the string
+            "iMac Intel (27-inch, Early 2013) / iMac13,3" is compared
+            by "iMac", then "13", then "3".
+
+    Returns:
+        -1 for less than, 0 for equal, or 1 for greater than.
+    """
+    VersionIdentifier = namedtuple("VersionIdentifier",
+                                   ("model", "major", "minor"))
+    model_string_one = model_string_one.split("/")[1].lstrip()
+    model_string_two = model_string_two.split("/")[1].lstrip()
+    pattern = re.compile("(?P<model>\D+)(?P<major>\d+),(?P<minor>\d+)")
+
+    model_one = VersionIdentifier(
+        *re.search(pattern, model_string_one).groups())
+    model_two = VersionIdentifier(
+        *re.search(pattern, model_string_two).groups())
+
+    if model_one.model == model_two.model:
+        #pdb.set_trace()
+        if model_one.major == model_two.major:
+            result = cmp(int(model_one.minor), int(model_two.minor))
+        else:
+            result = cmp(int(model_one.major), int(model_two.major))
+    else:
+        result = cmp(model_one.model, model_two.model)
+
+    return result
+
 
 def build_mobile_devices_report(check_in_period, **kwargs):
     """Build a report of out-of-date or unresponsive mobile devices.
@@ -524,27 +576,20 @@ def build_mobile_devices_report(check_in_period, **kwargs):
     # Convert check_in_period to a DateTime object.
     out_of_date = datetime.datetime.now() - datetime.timedelta(check_in_period)
     # Example mobile device time format:Friday, August 07 2015 at 3:51 PM
-    # 2015-08-07T15:51:06.980-0400
+    # Monday, February 10 2014 at 8:42 AM<
     #fmt_string = "%Y-%m-%dT%H:%M:%S.%f%z"
+    fmt_string = "%A, %B %d %Y at %H:%M %p"
+    strptime = datetime.datetime.strptime
     out_of_date_mobile_devices = []
     for device in all_mobile_devices:
-        # Mobile devices don't have a 'last_contact_time'. Also, the
-        # inventory time used here is time-since-epoch, since the UTC
-        # time doesn't work until Python 3.4, and the JAMF doesn't
-        # zero-pad their 12-hour hours.
-        search = "general/last_inventory_update_epoch"
-        # Convert to an integer, while protecting against missing
-        # values.
-        epoch = int(device.findtext(search), 0)
-        if epoch > 0:
-            # JAMF's epoch times include fractional seconds as the
-            # final two characters; datetime.fromtimestap won't succeed
-            # with them there, so we convert to str, slice it out,
-            # and convert to a float.
-            last_contact = datetime.datetime.fromtimestamp(
-                float(str(epoch)[:-2]))
+        date_string = device.findtext("general/last_inventory_update")
+        if date_string:
+            # JAMF doesn't zero-pad their hours, so we need to for them.
+            last_contact = strptime(hour_pad(date_string), fmt_string)
             if last_contact < out_of_date:
                 out_of_date_mobile_devices.append(device.name)
+        else:
+            out_of_date_mobile_devices.append(device.name)
 
     out_of_date_report = Result(
         out_of_date_mobile_devices, True, "Out of Date Mobile Devices")
@@ -585,6 +630,27 @@ def build_mobile_devices_report(check_in_period, **kwargs):
     report.metadata["Version Spread"] = count_dict
 
     return report
+
+
+def hour_pad(datetime_string):
+    """Fix time strings' zero padding.
+
+    JAMF's dates don't always properly zero pad the hour. Do so.
+
+    Args:
+        datetime_string: A time string as referenced in MobileDevice's
+            last_inventory_time field.
+
+    Returns:
+        The string plus any zero padding required.
+    """
+    # Example mobile device time format:
+    # Friday, August 07 2015 at 3:51 PM
+    # Monday, February 10 2014 at 8:42 AM<
+    components = datetime_string.split()
+    if len(components[5]) == 1:
+        components[5] = "0" + components[5]
+    return " ".join(components)
 
 
 def build_packages_report(**kwargs):
@@ -1118,13 +1184,7 @@ def get_terminal_size():
 
 
 def fix_version_counts(version_counts):
-    """Fix blank version names and append a .0 to too-short versions.
-
-    The JSS sometimes inventories an OS Version of "", so give a more
-    meaningful title to that situation.
-
-    Also, iOS versions exist currently like "8.4", which sorts higher
-    than "8.1.3".
+    """Fix too short version names by appending a '.0'.
 
     Args:
         version_counts: Dict of key: version name val: Count of clients.
@@ -1139,8 +1199,6 @@ def fix_version_counts(version_counts):
         else:
             updated_version = version
         result[updated_version] = version_counts[version]
-    if "" in result:
-        result["No Version Inventoried"] = result.pop("")
 
     return result
 
