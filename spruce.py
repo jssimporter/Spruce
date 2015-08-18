@@ -1320,16 +1320,19 @@ def get_histogram_strings(data, padding=0, hist_char="\xf0\x9f\x8d\x95"):
     """
     max_key_width = max([len(key) for key in data])
     max_val_width = max([len(str(val)) for val in data.values()])
+    max_value = max(data.values())
     osx_clients = sum(data.values())
     _, width = get_terminal_size()
     # Find the length we have left for the histogram bars.
-    # Magic number 4 is the _(): parts of the string.
-    histogram_width = width - padding - max_key_width - max_val_width - 4
+    # Magic number 6 is the _():_ parts of the string, and the
+    # guaranteed value of one that gets added.
+    histogram_width = width - padding - max_key_width - max_val_width - 6
     result = []
     for key, val in data.iteritems():
         preamble = "{:>{max_key}} ({:>{max_val}}): ".format(
             key, val, max_key=max_key_width, max_val=max_val_width)
-        percentage = float(val) / osx_clients
+        #percentage = float(val) / osx_clients
+        percentage = float(val) / max_value
         histogram_bar = int(percentage * histogram_width + 1) * hist_char
         result.append(preamble + histogram_bar)
     return result
