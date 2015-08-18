@@ -413,88 +413,168 @@ def build_container_report(containers_with_search_paths, jss_objects):
     return report
 
 
-def build_computers_report(check_in_period, **kwargs):
-    """Build a report of out-of-date or unresponsive computers.
+def build_device_report(check_in_period, devices):
+    """Build a report of out-of-date or unresponsive devices.
 
-    Finds the newest OS version and looks for computers which are out
+    Finds the newest OS version and looks for devices which are out
     of date. (Builds a histogram of installed OS versions).
 
-    Also, compiles a list of computers which have not checked in for
+    Compiles a list of devices which have not checked in for
     'check_in_period' days.
+
+    Finally, does a report on the hardware models present.
 
     Args:
         check_in_period: Integer number of days since last check-in to
             include in report. Defaults to 30.
+        devices: List of all Computer or MobileDevice objects from the
+            JSS. These lists can be subsetted to include only the
+            sections needed for this report.
 
     Returns:
         A Report object.
     """
-    # Validate check_in_period argument.
-    if not check_in_period:
-        check_in_period = 30
-    if not isinstance(check_in_period, int):
-        try:
-            check_in_period = int(check_in_period)
-        except ValueError:
-            print "Incorrect check-in period given. Setting to 30."
-            check_in_period = 30
+    check_in_period = validate_check_in_period(check_in_period)
+    device_type = devices[0].list_type.replace("_", " ").title()
+    report = Report([], "%s Report" % device_type, {"Cruftiness": {}})
 
-    jss_connection = JSSConnection.get()
-    all_computers = jss_connection.Computer().retrieve_all(
-        subset=["general", "hardware", "groups_accounts"])
+    # Out of Date results.
+    out_of_date_results = get_out_of_date_devices(check_in_period, devices)
+    report.results.append(out_of_date_results[0])
+    report.metadata["Cruftiness"][
+        "%ss Not Checked In Cruftiness" % device_type] = out_of_date_results[1]
 
-    # Convert check_in_period to a DateTime object.
+    # Orphaned device results.
+    orphaned_device_results = get_orphaned_devices(devices)
+    report.results.append(orphaned_device_results[0])
+    report.metadata["Cruftiness"]["%ss With no Group Membership Cruftiness" %
+                                  device_type] = orphaned_device_results[1]
+
+    # Version and model reuslts.
+    report.metadata["Version Spread"], report.metadata[
+        "Hardware Model Spread"] = get_version_and_model_spread(devices)
+
+    return report
+
+
+def get_out_of_date_devices(check_in_period, devices):
+    """Produce a report on devices not checked in since check_in_period.
+
+    Args:
+        check_in_period: Number of days to consider out of date.
+        devices: List of all Computer or MobileDevice objects on the
+            JSS.
+
+    Returns:
+        Tuple of (Result object, cruftiness)
+    """
+    device_name = device_type(devices)
+    strptime = datetime.datetime.strptime
     out_of_date = datetime.datetime.now() - datetime.timedelta(check_in_period)
     # Example computer contact time format: 2015-08-06 10:46:51
-    fmt_string = "%Y-%m-%d %H:%M:%S"
-    out_of_date_computers = []
-    for computer in all_computers:
-        last_contact = computer.findtext("general/last_contact_time")
-        strptime = datetime.datetime.strptime
-        if last_contact and strptime(last_contact, fmt_string) < out_of_date:
-            out_of_date_computers.append(computer.name)
+    # Example mobile device time format:Friday, August 07 2015 at 3:51 PM
+    if isinstance(devices[0], jss.Computer):
+        fmt_string = "%Y-%m-%d %H:%M:%S"
+        check_in = "general/last_contact_time"
+    else:
+        fmt_string = "%A, %B %d %Y at %H:%M %p"
+        check_in = "general/last_inventory_update"
+    out_of_date_devices = []
+    for device in devices:
+        last_contact = device.findtext(check_in)
+        # Fix incorrectly formatted Mobile Device times.
+        if last_contact and isinstance(device, jss.MobileDevice):
+            last_contact = hour_pad(last_contact)
+        if (last_contact and strptime(
+            last_contact, fmt_string) < out_of_date) or not last_contact:
+            out_of_date_devices.append(device.name)
+
     out_of_date_report = Result(
-        out_of_date_computers, True, "Out of Date Computers")
-    report = Report([out_of_date_report], "Computer Report",
-                    {"Cruftiness": {}})
+        out_of_date_devices, True, "Out of Date %ss" % device_name)
 
-    out_of_date_cruftiness = calculate_cruft(out_of_date_report.results,
-                                             all_computers)
-    report.metadata["Cruftiness"]["Computers Not Checked In Cruftiness"] = (
-        get_cruft_strings(out_of_date_cruftiness))
+    out_of_date_cruftiness = calculate_cruft(
+        out_of_date_report.results, devices)
+    cruftiness = get_cruft_strings(out_of_date_cruftiness)
 
-    # Report on computers with no group membership (i.e. "orphans").
-    orphaned_computers = [computer.name for computer in all_computers if
-                          has_no_group_membership(computer)]
-    orphan_report = Result(orphaned_computers, True,
-                           "Computers With no Group Membership")
-    report.results.append(orphan_report)
-    orphan_cruftiness = calculate_cruft(orphan_report.results, all_computers)
-    report.metadata["Cruftiness"][
-        "Computers With no Group Membership Cruftiness"] = (
-        get_cruft_strings(orphan_cruftiness))
+    return (out_of_date_report, cruftiness)
 
-    # Build a list of all versions.
+
+def get_orphaned_devices(devices):
+    """Generate Result of devices with no group memberships.
+
+    Also, include a cruftiness result.
+
+    Args:
+        devices: List of all Computer or MobileDevice objects on the
+            JSS.
+
+    Returns:
+        Tuple of (Result object, cruftiness)
+    """
+    device_name = device_type(devices)
+    orphaned_devices = [device.name for device in devices if
+                          has_no_group_membership(device)]
+    orphan_report = Result(orphaned_devices, True,
+                           "%ss With no Group Membership" % device_name)
+
+    orphan_cruftiness = calculate_cruft(orphan_report.results, devices)
+    cruftiness = get_cruft_strings(orphan_cruftiness)
+
+    return (orphan_report, cruftiness)
+
+
+def device_type(devices):
+    """Return a string type name for a list of devices."""
+    if not len({type(device) for device in devices}) == 1:
+        raise ValueError
+    else:
+        return devices[0].list_type.replace("_", " ").title()
+
+
+def get_version_and_model_spread(devices):
+    """Generate version spread metadata for device reports.
+
+    Args:
+        devices: List of all Computer or MobileDevice objects on the
+            JSS.
+
+    Returns:
+        Dictionary appropriate for use in Report.metadata.
+    """
+    device_name = device_type(devices)
+    if isinstance(devices[0], jss.Computer):
+        os_type_search = "hardware/os_name"
+        os_type = "Mac OS X"
+        os_version_search = "hardware/os_version"
+        model_search = "hardware/model"
+        model_identifier_search = "hardware/model_identifier"
+    else:
+        os_type_search = "general/os_type"
+        os_type = "iOS"
+        os_version_search = "general/os_version"
+        model_search = "general/model"
+        model_identifier_search = "general/model_identifier"
     versions, models = [], []
-    for computer in all_computers:
-        if computer.findtext("hardware/os_name") == "Mac OS X":
-            versions.append(computer.findtext(
-                "hardware/os_version", "No Version Inventoried"))
+
+    for device in devices:
+        if device.findtext(os_type_search) == os_type:
+            versions.append(device.findtext(os_version_search) or
+                            "No Version Inventoried" )
             models.append("%s / %s" % (
-                computer.findtext("hardware/model", "No Model Inventoried"),
-                computer.findtext("hardware/model_identifier",
-                                  "No Model Identifier Inventoried")))
+                device.findtext(model_search) or "No Model",
+                device.findtext(model_identifier_search,) or
+                "No Model Identifier"))
     version_counts = Counter(versions)
     # Standardize version number format.
     version_counts = fix_version_counts(version_counts)
     model_counts = Counter(models)
 
-    total = len(all_computers)
+    total = len(devices)
 
     # Report on OS version spread
     strings = sorted(get_histogram_strings(version_counts, padding=8))
-    count_dict = {"OS X Version Histogram (%s)" % total: strings}
-    report.metadata["Version Spread"] = count_dict
+    count_dict = {"%s Version Histogram (%s)" % (os_type, total): strings}
+    version_metadata = count_dict
 
     # Report on Model Spread
     # Compare on the model identifier since it is an easy numerical
@@ -502,9 +582,9 @@ def build_computers_report(check_in_period, **kwargs):
     strings = sorted(get_histogram_strings(model_counts, padding=8),
                      cmp=model_identifier_cmp)
     count_dict = {"Hardware Model Histogram (%s)" % total: strings}
-    report.metadata["Model Spread"] = count_dict
+    model_metadata = count_dict
 
-    return report
+    return (version_metadata, model_metadata)
 
 
 def model_identifier_cmp(model_string_one, model_string_two):
@@ -543,14 +623,16 @@ def model_identifier_cmp(model_string_one, model_string_two):
     return result
 
 
-def build_mobile_devices_report(check_in_period, **kwargs):
-    """Build a report of out-of-date or unresponsive mobile devices.
+def build_computers_report(check_in_period, **kwargs):
+    """Build a report of out-of-date or unresponsive computers.
 
-    Finds the newest OS version and looks for devices which are out
-    of date. (Builds histogram of all installed versions).
+    Finds the newest OS version and looks for computers which are out
+    of date. (Builds a histogram of installed OS versions).
 
-    Also, compiles a list of devices which have not checked in for
+    Also, compiles a list of computers which have not checked in for
     'check_in_period' days.
+
+    Finally, does a report on the hardware models present.
 
     Args:
         check_in_period: Integer number of days since last check-in to
@@ -559,7 +641,51 @@ def build_mobile_devices_report(check_in_period, **kwargs):
     Returns:
         A Report object.
     """
-    # Validate check_in_period argument.
+    jss_connection = JSSConnection.get()
+    all_computers = jss_connection.Computer().retrieve_all(
+        subset=["general", "hardware", "groups_accounts"])
+
+    report = build_device_report(check_in_period, all_computers)
+
+    return report
+
+
+def build_mobile_devices_report(check_in_period, **kwargs):
+    """Build a report of out-of-date or unresponsive mobile devices.
+
+    Finds the newest OS version and looks for devices which are out
+    of date. (Builds a histogram of installed OS versions).
+
+    Also, compiles a list of computers which have not checked in for
+    'check_in_period' days.
+
+    Finally, does a report on the hardware models present.
+
+    Args:
+        check_in_period: Integer number of days since last check-in to
+            include in report. Defaults to 30.
+
+    Returns:
+        A Report object.
+    """
+    jss_connection = JSSConnection.get()
+    mobile_devices = jss_connection.MobileDevice().retrieve_all(
+        subset=["general", "mobile_device_groups", "mobiledevicegroups"])
+
+    report = build_device_report(check_in_period, mobile_devices)
+
+    return report
+
+
+def validate_check_in_period(check_in_period):
+    """Ensure check_in_period argument is correct.
+
+    Args:
+        check_in_period: Number of days to consider out of date.
+
+    Returns:
+        A valid int check-in-period number of days.
+    """
     if not check_in_period:
         check_in_period = 30
     if not isinstance(check_in_period, int):
@@ -569,67 +695,7 @@ def build_mobile_devices_report(check_in_period, **kwargs):
             print "Incorrect check-in period given. Setting to 30."
             check_in_period = 30
 
-    jss_connection = JSSConnection.get()
-    all_mobile_devices = jss_connection.MobileDevice().retrieve_all(
-        subset=["general", "mobile_device_groups", "mobiledevicegroups"])
-
-    # Convert check_in_period to a DateTime object.
-    out_of_date = datetime.datetime.now() - datetime.timedelta(check_in_period)
-    # Example mobile device time format:Friday, August 07 2015 at 3:51 PM
-    # Monday, February 10 2014 at 8:42 AM<
-    #fmt_string = "%Y-%m-%dT%H:%M:%S.%f%z"
-    fmt_string = "%A, %B %d %Y at %H:%M %p"
-    strptime = datetime.datetime.strptime
-    out_of_date_mobile_devices = []
-    for device in all_mobile_devices:
-        date_string = device.findtext("general/last_inventory_update")
-        if date_string:
-            # JAMF doesn't zero-pad their hours, so we need to for them.
-            last_contact = strptime(hour_pad(date_string), fmt_string)
-            if last_contact < out_of_date:
-                out_of_date_mobile_devices.append(device.name)
-        else:
-            out_of_date_mobile_devices.append(device.name)
-
-    out_of_date_report = Result(
-        out_of_date_mobile_devices, True, "Out of Date Mobile Devices")
-    report = Report([out_of_date_report], "Mobile Device Report",
-                    {"Cruftiness": {}})
-
-    out_of_date_cruftiness = calculate_cruft(out_of_date_report.results,
-                                             all_mobile_devices)
-    report.metadata["Cruftiness"][
-        "Mobile Devices Not Checked In Cruftiness"] = (
-            get_cruft_strings(out_of_date_cruftiness))
-
-    # Report on devices with no group membership (i.e. "orphans").
-    orphaned_devices = [device.name for device in all_mobile_devices if
-                          has_no_group_membership(device)]
-    orphan_report = Result(orphaned_devices, True,
-                           "Mobile Devices With no Group Membership")
-    report.results.append(orphan_report)
-    orphan_cruftiness = calculate_cruft(orphan_report.results,
-                                        all_mobile_devices)
-    report.metadata["Cruftiness"][
-        "Mobile Devices With no Group Membership Cruftiness"] = (
-        get_cruft_strings(orphan_cruftiness))
-
-    # Report on OS version spread
-    # Build a list of all versions.
-    all_devices_versions = [device.findtext("general/os_version") for device in
-                            all_mobile_devices]
-    versions_present = set(all_devices_versions)
-    version_counts = {version: all_devices_versions.count(version) for
-                      version in versions_present}
-
-    version_counts = fix_version_counts(version_counts)
-
-    total = len(all_mobile_devices)
-    strings = sorted(get_histogram_strings(version_counts, padding=8))
-    count_dict = {"iOS Version Histogram (%s)" % total: strings}
-    report.metadata["Version Spread"] = count_dict
-
-    return report
+    return check_in_period
 
 
 def hour_pad(datetime_string):
@@ -1194,7 +1260,8 @@ def fix_version_counts(version_counts):
     """
     result = {}
     for version in version_counts:
-        if version.count(".") < 2 and version != "":
+        if version.count(".") < 2 and version not in ("",
+            "No Version Inventoried"):
             updated_version = "%s.0" % version
         else:
             updated_version = version
