@@ -86,7 +86,6 @@ from collections import Counter, namedtuple
 import datetime
 from distutils.version import StrictVersion
 import os
-import pdb
 import re
 import subprocess
 import sys
@@ -231,7 +230,7 @@ class JSSConnection(object):
     _jss = None
 
     @classmethod
-    def setup(cls, connection={"jss_prefs": jss.JSSPrefs()}):
+    def setup(cls, connection=None):
         """Set up the jss connection class variable.
 
         If no connection argument is provided, setup will use the
@@ -258,6 +257,8 @@ class JSSConnection(object):
                     warnings are there for a reason! Use at your own
                     risk.
         """
+        if not connection:
+            connection = {"jss_prefs": jss.JSSPrefs()}
         cls._jss_prefs = connection
         if isinstance(connection, jss.JSSPrefs):
             cls._jss = jss.JSS(jss_prefs=cls._jss_prefs)
@@ -435,22 +436,22 @@ def build_device_report(check_in_period, devices):
         A Report object.
     """
     check_in_period = validate_check_in_period(check_in_period)
-    device_type = devices[0].list_type.replace("_", " ").title()
-    report = Report([], "%s Report" % device_type, {"Cruftiness": {}})
+    device_name = device_type(devices)
+    report = Report([], "%s Report" % device_name, {"Cruftiness": {}})
 
     # Out of Date results.
     out_of_date_results = get_out_of_date_devices(check_in_period, devices)
     report.results.append(out_of_date_results[0])
     report.metadata["Cruftiness"][
-        "%ss Not Checked In Cruftiness" % device_type] = out_of_date_results[1]
+        "%ss Not Checked In Cruftiness" % device_name] = out_of_date_results[1]
 
     # Orphaned device results.
     orphaned_device_results = get_orphaned_devices(devices)
     report.results.append(orphaned_device_results[0])
     report.metadata["Cruftiness"]["%ss With no Group Membership Cruftiness" %
-                                  device_type] = orphaned_device_results[1]
+                                  device_name] = orphaned_device_results[1]
 
-    # Version and model reuslts.
+    # Version and model results.
     report.metadata["Version Spread"], report.metadata[
         "Hardware Model Spread"] = get_version_and_model_spread(devices)
 
@@ -485,8 +486,8 @@ def get_out_of_date_devices(check_in_period, devices):
         # Fix incorrectly formatted Mobile Device times.
         if last_contact and isinstance(device, jss.MobileDevice):
             last_contact = hour_pad(last_contact)
-        if (last_contact and strptime(
-            last_contact, fmt_string) < out_of_date) or not last_contact:
+        if not last_contact or (strptime(last_contact, fmt_string) <
+                                out_of_date):
             out_of_date_devices.append(device.name)
 
     out_of_date_report = Result(
@@ -513,7 +514,7 @@ def get_orphaned_devices(devices):
     """
     device_name = device_type(devices)
     orphaned_devices = [device.name for device in devices if
-                          has_no_group_membership(device)]
+                        has_no_group_membership(device)]
     orphan_report = Result(orphaned_devices, True,
                            "%ss With no Group Membership" % device_name)
 
@@ -541,7 +542,6 @@ def get_version_and_model_spread(devices):
     Returns:
         Dictionary appropriate for use in Report.metadata.
     """
-    device_name = device_type(devices)
     if isinstance(devices[0], jss.Computer):
         os_type_search = "hardware/os_name"
         os_type = "Mac OS X"
@@ -559,7 +559,7 @@ def get_version_and_model_spread(devices):
     for device in devices:
         if device.findtext(os_type_search) == os_type:
             versions.append(device.findtext(os_version_search) or
-                            "No Version Inventoried" )
+                            "No Version Inventoried")
             models.append("%s / %s" % (
                 device.findtext(model_search) or "No Model",
                 device.findtext(model_identifier_search,) or
@@ -600,11 +600,13 @@ def model_identifier_cmp(model_string_one, model_string_two):
     Returns:
         -1 for less than, 0 for equal, or 1 for greater than.
     """
+    # pylint: disable=invalid-name
     VersionIdentifier = namedtuple("VersionIdentifier",
                                    ("model", "major", "minor"))
+    # pylint: enable=invalid-name
     model_string_one = model_string_one.split("/")[1].lstrip()
     model_string_two = model_string_two.split("/")[1].lstrip()
-    pattern = re.compile("(?P<model>\D+)(?P<major>\d+),(?P<minor>\d+)")
+    pattern = re.compile(r"(?P<model>\D+)(?P<major>\d+),(?P<minor>\d+)")
 
     model_one = VersionIdentifier(
         *re.search(pattern, model_string_one).groups())
@@ -641,6 +643,9 @@ def build_computers_report(check_in_period, **kwargs):
     Returns:
         A Report object.
     """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
     jss_connection = JSSConnection.get()
     all_computers = jss_connection.Computer().retrieve_all(
         subset=["general", "hardware", "groups_accounts"])
@@ -668,6 +673,9 @@ def build_mobile_devices_report(check_in_period, **kwargs):
     Returns:
         A Report object.
     """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
     jss_connection = JSSConnection.get()
     mobile_devices = jss_connection.MobileDevice().retrieve_all(
         subset=["general", "mobile_device_groups", "mobiledevicegroups"])
@@ -728,6 +736,9 @@ def build_packages_report(**kwargs):
     Returns:
         A Report object.
     """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
     jss_connection = JSSConnection.get()
     # We have to support the functioning subset and the (hopefully) fixed
     # future subset name.
@@ -755,6 +766,9 @@ def build_scripts_report(**kwargs):
     Returns:
         A Report object.
     """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
     jss_connection = JSSConnection.get()
     all_policies = jss_connection.Policy().retrieve_all(
         subset=["general", "scripts"])
@@ -780,6 +794,9 @@ def build_computer_groups_report(**kwargs):
     Returns:
         A Report object.
     """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
     jss_connection = JSSConnection.get()
     all_policies = jss_connection.Policy().retrieve_all(
         subset=["general", "scope"])
@@ -797,7 +814,7 @@ def build_computer_groups_report(**kwargs):
     # Build results for groups which aren't scoped.
     report = build_container_report(
         [(all_policies, policy_xpath), (all_policies, policy_exclusions_xpath),
-        (all_configs, config_xpath), (all_configs, config_exclusions_xpath)],
+         (all_configs, config_xpath), (all_configs, config_exclusions_xpath)],
         all_computer_groups)
 
     report.heading = "Computer Group Usage Report"
@@ -848,16 +865,19 @@ def build_device_groups_report(**kwargs):
     Returns:
         A Report object.
     """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
     jss_connection = JSSConnection.get()
     all_configs = (
         jss_connection.MobileDeviceConfigurationProfile().retrieve_all(
-        subset=["general", "scope"]))
+            subset=["general", "scope"]))
     all_provisioning_profiles = (
         jss_connection.MobileDeviceProvisioningProfile().retrieve_all(
-        subset=["general", "scope"]))
+            subset=["general", "scope"]))
     all_apps = (
         jss_connection.MobileDeviceApplication().retrieve_all(
-        subset=["general", "scope"]))
+            subset=["general", "scope"]))
     all_ebooks = (
         jss_connection.EBook().retrieve_all(subset=["general", "scope"]))
     all_mobile_device_groups = [group.name for group in
@@ -925,6 +945,9 @@ def build_policies_report(**kwargs):
     Returns:
         A Report object.
     """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
     jss_connection = JSSConnection.get()
     all_policies = jss_connection.Policy().retrieve_all(
         subset=["general", "scope"])
@@ -961,6 +984,9 @@ def build_config_profiles_report(**kwargs):
     Returns:
         A Report object.
     """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
     jss_connection = JSSConnection.get()
     all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
         subset=["general", "scope"])
@@ -992,10 +1018,13 @@ def build_md_config_profiles_report(**kwargs):
     Returns:
         A Report object.
     """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
     jss_connection = JSSConnection.get()
     all_configs = (
         jss_connection.MobileDeviceConfigurationProfile().retrieve_all(
-        subset=["general", "scope"]))
+            subset=["general", "scope"]))
     unscoped_configs = [config.name for config in all_configs if
                         config.findtext("scope/all_mobile_devices") ==
                         "false" and not
@@ -1259,9 +1288,9 @@ def fix_version_counts(version_counts):
         The updated version_counts dict.
     """
     result = {}
+    ignored = ("", "No Version Inventoried")
     for version in version_counts:
-        if version.count(".") < 2 and version not in ("",
-            "No Version Inventoried"):
+        if version.count(".") < 2 and version not in ignored:
             updated_version = "%s.0" % version
         else:
             updated_version = version
