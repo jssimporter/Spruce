@@ -608,10 +608,17 @@ def model_identifier_cmp(model_string_one, model_string_two):
     model_string_two = model_string_two.split("/")[1].lstrip()
     pattern = re.compile(r"(?P<model>\D+)(?P<major>\d+),(?P<minor>\d+)")
 
-    model_one = VersionIdentifier(
-        *re.search(pattern, model_string_one).groups())
-    model_two = VersionIdentifier(
-        *re.search(pattern, model_string_two).groups())
+    search_one = re.search(pattern, model_string_one)
+    if search_one:
+        model_one = VersionIdentifier(*search_one.groups())
+    else:
+        model_one = VersionIdentifier(0, 0, 0)
+
+    search_two = re.search(pattern, model_string_two)
+    if search_two:
+        model_two = VersionIdentifier(*search_two.groups())
+    else:
+        model_two= VersionIdentifier(0, 0, 0)
 
     if model_one.model == model_two.model:
         #pdb.set_trace()
