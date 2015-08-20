@@ -85,6 +85,7 @@ import argparse
 from collections import Counter, namedtuple
 import datetime
 from distutils.version import StrictVersion
+from HTMLParser import HTMLParser
 import os
 import re
 import subprocess
@@ -103,8 +104,10 @@ try:
     from jss import __version__ as PYTHON_JSS_VERSION
 except ImportError:
     PYTHON_JSS_VERSION = "0.0.0"
+# Requests is installed by python-jss.
+import requests
 
-REQUIRED_PYTHON_JSS_VERSION = StrictVersion("1.2.1")
+REQUIRED_PYTHON_JSS_VERSION = StrictVersion("1.3.0")
 
 
 # Globals
@@ -329,6 +332,32 @@ class Report(object):
                 found = result
                 break
         return found
+
+
+class AppStoreVersionParser(HTMLParser):
+    """Subclasses HTMLParser to scrape current app version number."""
+
+    def __init__(self):
+        HTMLParser.__init__(self)
+        self.version = "Version Not Found"
+
+    def reset(self):
+        """Manage data state to know when we are in the version span."""
+        HTMLParser.reset(self)
+        self.in_version_span = False
+
+    def handle_starttag(self, tag, attrs):
+        """Override handling of tags to find version metadata."""
+        # <span itemprop="softwareVersion">3.0.3
+        attrs_dict = dict(attrs)
+        if (tag == "span" and "itemprop" in attrs_dict and
+            attrs_dict["itemprop"] == "softwareVersion"):
+            self.in_version_span = True
+
+    def handle_data(self, data):
+        if self.in_version_span:
+            self.version = data
+            self.in_version_span = False
 
 
 def map_jssimporter_prefs(prefs):
@@ -1038,6 +1067,9 @@ def build_md_config_profiles_report(**kwargs):
                         config.findall("scope/mobile_devices/mobile_device")
                         and not config.findall(
                             "scope/mobile_device_groups/mobile_device_group")
+                        and not config.findall("scope/jss_users/user") and
+                        not config.findall(
+                            "scope/jss_user_groups/user_group")
                         and not config.findall("scope/buildings/building") and
                         not config.findall("scope/departments/department")]
     unscoped = Result(unscoped_configs, True,
@@ -1049,6 +1081,68 @@ def build_md_config_profiles_report(**kwargs):
                     {"Cruftiness": {}})
     report.metadata["Cruftiness"]["Unscoped Profile Cruftiness"] = (
         get_cruft_strings(unscoped_cruftiness))
+
+    return report
+
+
+def build_apps_report(**kwargs):
+    """Report on out of date and unscoped mobile apps.
+
+    Returns:
+        A Report object.
+    """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
+    jss_connection = JSSConnection.get()
+    all_apps = (
+        jss_connection.MobileDeviceApplication().retrieve_all(
+            subset=["general", "scope"]))
+
+    # Find apps not scoped anywhere.
+    # TODO: Do md_config_profiles need the scope/all_users search?
+    unscoped_apps = [app.name for app in all_apps if
+                     app.findtext("scope/all_mobile_devices") == "false" and
+                     app.findtext("scope/all_jss_users") == "false" and not
+                     app.findall("scope/mobile_devices/mobile_device") and
+                     not app.findall(
+                         "scope/mobile_device_groups/mobile_device_group") and
+                     app.findall("scope/jss_users/user") and
+                     not app.findall(
+                         "scope/jss_user_groups/user_group") and
+                     not app.findall("scope/buildings/building") and not
+                     app.findall("scope/departments/department")]
+    unscoped = Result(unscoped_apps, True,
+                      "Mobile Device Applications not Scoped")
+    unscoped_cruftiness = calculate_cruft(unscoped_apps, all_apps)
+
+
+    report = Report([unscoped], "Mobile Device Application Report",
+                    {"Cruftiness": {}})
+    report.metadata["Cruftiness"]["Unscoped App Cruftiness"] = (
+        get_cruft_strings(unscoped_cruftiness))
+
+    # Find out-of-date apps.
+    out_of_date = {}
+    # Start a requests session.
+    session = requests.session()
+    for app in all_apps:
+        external_url = app.findtext("general/external_url")
+        page = session.get(external_url).text
+        version_parser = AppStoreVersionParser()
+        version_parser.feed(page)
+        current_version = version_parser.version
+        if app.findtext("general/version") != current_version:
+            out_of_date[app.name] = (app.findtext("general/version"),
+                                     current_version)
+    out_of_date_strings = get_out_of_date_strings(out_of_date, padding=4)
+    out_of_date_result = Result(out_of_date_strings, True,
+                                "Out-of-Date Mobile Device Applications")
+    report.results.append(out_of_date_result)
+
+    out_of_date_cruftiness = calculate_cruft(out_of_date, all_apps)
+    report.metadata["Cruftiness"]["Out-of-Date App Cruftiness"] = (
+        get_cruft_strings(out_of_date_cruftiness))
 
     return report
 
@@ -1235,7 +1329,8 @@ def print_output(report, verbose=False):
         else:
             print "\n%s  %s (%i)" % (
                 SPRUCE, result.heading, len(result.results))
-            for line in sorted(result.results, key=lambda s: s.upper()):
+            for line in sorted(result.results,
+                               key=lambda s: s.upper().strip()):
                 print "\t%s" % line
 
     for heading, subsection in report.metadata.iteritems():
@@ -1345,6 +1440,35 @@ def get_histogram_strings(data, padding=0, hist_char="\xf0\x9f\x8d\x95"):
     return result
 
 
+def get_out_of_date_strings(data, padding=0):
+    """Build a list of strings for data with three items.
+
+    Given a dictionary of items, generate a list of column aligned,
+    padded strings.
+
+    Args:
+        data: Dict with
+            key: string heading/name
+            val: 2-Tuple of data to fill in string.
+        padding: int number of characters to subtract from max bar
+            size. Defaults to zero. (If you intend on indenting, the
+            indent level should be specified to make sure large bars
+            don't overflow the length of the terminal.
+
+    Returns:
+        List of strings ready to print.
+    """
+    max_key_width = max([len(key) for key in data])
+    max_val1_width = max([len(str(val[0])) for val in data.values()])
+    max_val2_width = max([len(str(val[1])) for val in data.values()])
+    result = []
+    for key, val in data.iteritems():
+        output_string = u"{:>{max_key}} JSS Version:{:>{max_val1}} App Store Version: {:>{max_val2}}".format(
+            key, val[0], val[1], max_key=max_key_width, max_val1=max_val1_width, max_val2=max_val2_width)
+        result.append(output_string)
+    return result
+
+
 def build_argparser():
     """Create our argument parser."""
     parser = argparse.ArgumentParser(
@@ -1395,6 +1519,9 @@ def build_argparser():
                           action="store_true")
     phelp = "Generate unused mobile-device-profiles report."
     md_group.add_argument("-m", "--mobile_device_configuration_profiles",
+                          help=phelp, action="store_true")
+    phelp = "Generate out-of-date and unused mobile apps report."
+    md_group.add_argument("-b", "--apps",
                           help=phelp, action="store_true")
 
     # Removal Args
@@ -1453,6 +1580,10 @@ def run_reports(args):
     reports["mobile_device_groups"] = {
         "heading": "Mobile Device Group Report",
         "func": build_device_groups_report,
+        "report": None}
+    reports["apps"] = {
+        "heading": "Mobile Apps",
+        "func": build_apps_report,
         "report": None}
 
     args_dict = vars(args)
