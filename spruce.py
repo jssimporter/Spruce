@@ -1458,14 +1458,18 @@ def get_out_of_date_strings(data, padding=0):
     Returns:
         List of strings ready to print.
     """
-    max_key_width = max([len(key) for key in data])
-    max_val1_width = max([len(str(val[0])) for val in data.values()])
-    max_val2_width = max([len(str(val[1])) for val in data.values()])
     result = []
-    for key, val in data.iteritems():
-        output_string = u"{:>{max_key}} JSS Version:{:>{max_val1}} App Store Version: {:>{max_val2}}".format(
-            key, val[0], val[1], max_key=max_key_width, max_val1=max_val1_width, max_val2=max_val2_width)
-        result.append(output_string)
+    if data:
+        max_key_width = max([len(key) for key in data])
+        max_val1_width = max([len(str(val[0])) for val in data.values()])
+        max_val2_width = max([len(str(val[1])) for val in data.values()])
+        for key, val in data.iteritems():
+            output_string = (u"{:>{max_key}} JSS Version:{:>{max_val1}} App "
+                             "Store Version: {:>{max_val2}}".format(
+                                 key, val[0], val[1], max_key=max_key_width,
+                                 max_val1=max_val1_width,
+                                 max_val2=max_val2_width))
+            result.append(output_string)
     return result
 
 
