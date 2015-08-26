@@ -555,10 +555,13 @@ def get_orphaned_devices(devices):
 
 def device_type(devices):
     """Return a string type name for a list of devices."""
-    if not len({type(device) for device in devices}) == 1:
-        raise ValueError
-    else:
+    num_of_types = len({type(device) for device in devices})
+    if num_of_types == 1:
         return devices[0].list_type.replace("_", " ").title()
+    elif num_of_types == 0:
+        return None
+    else:
+        raise ValueError
 
 
 def get_version_and_model_spread(devices):
