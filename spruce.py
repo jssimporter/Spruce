@@ -419,14 +419,17 @@ def build_container_report(containers_with_search_paths, jss_objects):
     """
     used_object_sets = []
     for containers, search in containers_with_search_paths:
-        used_object_sets.append({obj.text for container in containers for obj
-                                 in container.findall(search)})
+        #used_object_sets.append({obj.text for container in containers for obj
+        #                         in container.findall(search)})
+        used_object_sets.append({(int(obj.findtext("id")), obj.findtext("name")) for container in containers for obj
+                                 in container.findall(search) if obj.findtext("id") is not None})
 
     if used_object_sets:
         used = used_object_sets.pop()
         for used_object_set in used_object_sets:
             used = used.union(used_object_set)
     unused = set(jss_objects).difference(used)
+    pdb.set_trace()
 
     results = [Result(jss_objects, False, "All"),
                Result(used, False, "Used"),
@@ -786,8 +789,9 @@ def build_packages_report(**kwargs):
     all_policies = jss_connection.Policy().retrieve_all(
         subset=["general", "package_configuration", "packages"])
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
-    all_packages = [package.name for package in jss_connection.Package()]
-    policy_xpath = "package_configuration/packages/package/name"
+    all_packages = [(package.id, package.name) for package in jss_connection.Package()]
+    #policy_xpath = "package_configuration/packages/package/name"
+    policy_xpath = "package_configuration/packages/package"
     config_xpath = "packages/package/name"
     report = build_container_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
@@ -1335,8 +1339,8 @@ def print_output(report, verbose=False):
             print "\n%s  %s (%i)" % (
                 SPRUCE, result.heading, len(result.results))
             for line in sorted(result.results,
-                               key=lambda s: s.upper().strip()):
-                print "\t%s" % line
+                               key=lambda s: s[1].upper().strip()):
+                print "\t%s" % line[1]
 
     for heading, subsection in report.metadata.iteritems():
         print "\n%s  %s %s" % (SPRUCE, heading, SPRUCE)
@@ -1501,6 +1505,7 @@ def write_xml_output(results, ofile):
     indent(root)
     print ET.tostring(root)
     pdb.set_trace()
+
 
 def indent(elem, level=0, more_sibs=False):
     """Indent an xml element object to prepare for pretty printing.
