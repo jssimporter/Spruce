@@ -87,9 +87,11 @@ import datetime
 from distutils.version import StrictVersion
 from HTMLParser import HTMLParser
 import os
+import pdb
 import re
 import subprocess
 import sys
+from xml.etree import ElementTree as ET
 
 # pylint: disable=no-name-in-module
 from Foundation import (NSData,
@@ -1476,6 +1478,64 @@ def get_out_of_date_strings(data, padding=0):
     return result
 
 
+def write_xml_output(results, ofile):
+    """Write the results to an xml file.
+
+    Args:
+        results: A Result object.
+        ofile: String path to desired output filename.
+    """
+    jss_connection = JSSConnection.get()
+    root = ET.Element("Spruce Report")
+    report_date = ET.SubElement(root, "Report Date")
+    report_date.text = datetime.datetime.strftime(datetime.datetime.now(),
+                                                  "%Y%m%d-%H%M%S")
+    report_server = ET.SubElement(root, "Server")
+    report_server.text = jss_connection._base_url
+
+    for report in results.results:
+        report_element = ET.SubElement(root, report.heading)
+        for result in report.results:
+            ET.SubElement(report_element, result)
+
+    indent(root)
+    print ET.tostring(root)
+    pdb.set_trace()
+
+def indent(elem, level=0, more_sibs=False):
+    """Indent an xml element object to prepare for pretty printing.
+
+    Method is internal to discourage indenting the self._root
+    Element, thus potentially corrupting it.
+
+    """
+    i = "\n"
+    pad = '    '
+    if level:
+        i += (level - 1) * pad
+    num_kids = len(elem)
+    if num_kids:
+        if not elem.text or not elem.text.strip():
+            elem.text = i + pad
+            if level:
+                elem.text += pad
+        count = 0
+        for kid in elem:
+            if kid.tag == "data":
+                kid.text = "*DATA*"
+            indent(kid, level+1, count < num_kids - 1)
+            count += 1
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+            if more_sibs:
+                elem.tail += pad
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
+            if more_sibs:
+                elem.tail += pad
+
+
 def build_argparser():
     """Create our argument parser."""
     parser = argparse.ArgumentParser(
@@ -1624,8 +1684,7 @@ def run_reports(args):
             print_output(report, args.verbose)
         else:
             # TODO: Implement. And, should this be just one or the other?
-            # write_plist_output(reports)
-            pass
+            write_xml_output(report, args.ofile)
 
 
 def main():
