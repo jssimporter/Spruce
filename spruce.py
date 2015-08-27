@@ -1149,17 +1149,14 @@ def build_apps_report(**kwargs):
         version_parser.feed(page)
         current_version = version_parser.version
         if app.findtext("general/version") != current_version:
-            out_of_date[app.name.encode("utf_8")] = (app.findtext("general/version"),
+            out_of_date[app.name] = (app.findtext("general/version"),
                                      current_version)
         if current_version == "Version Not Found":
-            discontinued.append((app.id, app.name.encode("utf_8")))
+            discontinued.append((app.id, app.name))
 
     report.metadata["Out-of-Date Apps"] = {}
     report.metadata["Out-of-Date Apps"]["Out-of-Date Apps"] = (
         get_out_of_date_strings(out_of_date, padding=4))
-    out_of_date_result = Result(out_of_date_strings, True,
-                                "Out-of-Date Mobile Device Applications")
-    report.results.append(out_of_date_result)
 
     discontinued_result = Result(discontinued, True,
                                  "Apps No Longer Available")
@@ -1396,7 +1393,7 @@ def get_cruftmoji(percentage):
         "\xf0\x9f\x8c\xb5", # Cactus
         "\xf0\x9f\x92\xa9", # Smiling Poo
         "\xf0\x9f\x92\xa9 " * 3] # Smiling Poo (For 100%)
-    return level[int(percentage * 10)]
+    return level[int(percentage * 10)].decode("utf-8")
 
 
 def get_cruft_strings(cruft):
@@ -1466,7 +1463,7 @@ def get_histogram_strings(data, padding=0, hist_char="\xf0\x9f\x8d\x95"):
         #percentage = float(val) / osx_clients
         percentage = float(val) / max_value
         histogram_bar = int(percentage * histogram_width + 1) * hist_char
-        result.append(preamble + histogram_bar)
+        result.append((preamble + histogram_bar).decode("utf-8"))
     return result
 
 
@@ -1538,7 +1535,6 @@ def add_report_output(root, report):
             item = ET.SubElement(subreport_element, tagify(report.obj_type))
             item.text = name
             item.attrib["id"] = str(id_)
-    pdb.set_trace()
 
     # Metadata
     for metadata, val in report.metadata.iteritems():
@@ -1749,10 +1745,10 @@ def run_reports(args):
     if args.ofile:
         indent(output_xml)
         tree = ET.ElementTree(output_xml)
-        print ET.tostring(output_xml, encoding="utf_8")
-        tree.write(os.path.expanduser(args.ofile), encoding="utf_8",
-                xml_declaration=True)
         # TODO: Debug (Or leave in?)
+        print ET.tostring(output_xml, encoding="UTF-8")
+        tree.write(os.path.expanduser(args.ofile), encoding="UTF-8",
+                   xml_declaration=True)
 
 
 def main():
