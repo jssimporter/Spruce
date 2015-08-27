@@ -474,7 +474,8 @@ def build_device_report(check_in_period, devices):
     """
     check_in_period = validate_check_in_period(check_in_period)
     device_name = device_type(devices)
-    report = Report([], "%s Report" % device_name, {"Cruftiness": {}})
+    report = Report(device_name, [], "%s Report" % device_name,
+                    {"Cruftiness": {}})
 
     # Out of Date results.
     out_of_date_results = get_out_of_date_devices(check_in_period, devices)
@@ -525,7 +526,7 @@ def get_out_of_date_devices(check_in_period, devices):
             last_contact = hour_pad(last_contact)
         if not last_contact or (strptime(last_contact, fmt_string) <
                                 out_of_date):
-            out_of_date_devices.append(device.name)
+            out_of_date_devices.append((device.id, device.name))
 
     out_of_date_report = Result(
         out_of_date_devices, True, "Out of Date %ss" % device_name)
@@ -550,7 +551,7 @@ def get_orphaned_devices(devices):
         Tuple of (Result object, cruftiness)
     """
     device_name = device_type(devices)
-    orphaned_devices = [device.name for device in devices if
+    orphaned_devices = [(device.id, device.name) for device in devices if
                         has_no_group_membership(device)]
     orphan_report = Result(orphaned_devices, True,
                            "%ss With no Group Membership" % device_name)
