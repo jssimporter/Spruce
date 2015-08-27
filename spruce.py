@@ -821,9 +821,10 @@ def build_scripts_report(**kwargs):
     all_policies = jss_connection.Policy().retrieve_all(
         subset=["general", "scripts"])
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
-    all_scripts = [script.name for script in jss_connection.Script()]
-    policy_xpath = "scripts/script/name"
-    config_xpath = "scripts/script/name"
+    all_scripts = [(script.id, script.name) for script in
+                   jss_connection.Script()]
+    policy_xpath = "scripts/script"
+    config_xpath = "scripts/script"
     report = build_container_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_scripts)
@@ -999,7 +1000,7 @@ def build_policies_report(**kwargs):
     jss_connection = JSSConnection.get()
     all_policies = jss_connection.Policy().retrieve_all(
         subset=["general", "scope"])
-    unscoped_policies = [policy.name for policy in all_policies if
+    unscoped_policies = [(policy.id, policy.name) for policy in all_policies if
                          policy.findtext("scope/all_computers") == "false" and
                          not policy.findall("scope/computers/computer") and
                          not policy.findall(
@@ -1009,12 +1010,12 @@ def build_policies_report(**kwargs):
     unscoped = Result(unscoped_policies, True, "Policies not Scoped")
     unscoped_cruftiness = calculate_cruft(unscoped_policies, all_policies)
 
-    disabled_policies = [policy.name for policy in all_policies if
+    disabled_policies = [(policy.id, policy.name) for policy in all_policies if
                          policy.findtext("general/enabled") == "false"]
     disabled = Result(disabled_policies, True, "Disabled Policies")
     disabled_cruftiness = calculate_cruft(disabled_policies, all_policies)
 
-    report = Report([unscoped, disabled], "Policy Report",
+    report = Report("Policy", [unscoped, disabled], "Policy Report",
                     {"Cruftiness": {}})
     report.metadata["Cruftiness"]["Unscoped Policy Cruftiness"] = (
         get_cruft_strings(unscoped_cruftiness))
@@ -1038,7 +1039,7 @@ def build_config_profiles_report(**kwargs):
     jss_connection = JSSConnection.get()
     all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
         subset=["general", "scope"])
-    unscoped_configs = [config.name for config in all_configs if
+    unscoped_configs = [(config.id, config.name) for config in all_configs if
                         config.findtext("scope/all_computers") == "false" and
                         not config.findall("scope/computers/computer") and
                         not config.findall("scope/computer_groups/"
@@ -1050,7 +1051,8 @@ def build_config_profiles_report(**kwargs):
     unscoped_cruftiness = calculate_cruft(unscoped_configs, all_configs)
 
 
-    report = Report([unscoped], "Computer Configuration Profile Report",
+    report = Report("Computer Configuration Profile", [unscoped],
+                    "Computer Configuration Profile Report",
                     {"Cruftiness": {}})
     report.metadata["Cruftiness"]["Unscoped Profile Cruftiness"] = (
         get_cruft_strings(unscoped_cruftiness))
@@ -1073,7 +1075,7 @@ def build_md_config_profiles_report(**kwargs):
     all_configs = (
         jss_connection.MobileDeviceConfigurationProfile().retrieve_all(
             subset=["general", "scope"]))
-    unscoped_configs = [config.name for config in all_configs if
+    unscoped_configs = [(config.id, config.name) for config in all_configs if
                         config.findtext("scope/all_mobile_devices") ==
                         "false" and not
                         config.findall("scope/mobile_devices/mobile_device")
@@ -1089,7 +1091,8 @@ def build_md_config_profiles_report(**kwargs):
     unscoped_cruftiness = calculate_cruft(unscoped_configs, all_configs)
 
 
-    report = Report([unscoped], "Mobile Device Configuration Profile Report",
+    report = Report("Mobile Device Configuration Profile", [unscoped],
+                    "Mobile Device Configuration Profile Report",
                     {"Cruftiness": {}})
     report.metadata["Cruftiness"]["Unscoped Profile Cruftiness"] = (
         get_cruft_strings(unscoped_cruftiness))
@@ -1113,7 +1116,7 @@ def build_apps_report(**kwargs):
 
     # Find apps not scoped anywhere.
     # TODO: Do md_config_profiles need the scope/all_users search?
-    unscoped_apps = [app.name for app in all_apps if
+    unscoped_apps = [(app.id, app.name) for app in all_apps if
                      app.findtext("scope/all_mobile_devices") == "false" and
                      app.findtext("scope/all_jss_users") == "false" and not
                      app.findall("scope/mobile_devices/mobile_device") and
@@ -1129,13 +1132,14 @@ def build_apps_report(**kwargs):
     unscoped_cruftiness = calculate_cruft(unscoped_apps, all_apps)
 
 
-    report = Report([unscoped], "Mobile Device Application Report",
-                    {"Cruftiness": {}})
+    report = Report("Mobile Application", [unscoped],
+                    "Mobile Device Application Report", {"Cruftiness": {}})
     report.metadata["Cruftiness"]["Unscoped App Cruftiness"] = (
         get_cruft_strings(unscoped_cruftiness))
 
-    # Find out-of-date apps.
+    # Find out-of-date and discontinued apps.
     out_of_date = {}
+    discontinued = []
     # Start a requests session.
     session = requests.session()
     for app in all_apps:
@@ -1145,16 +1149,29 @@ def build_apps_report(**kwargs):
         version_parser.feed(page)
         current_version = version_parser.version
         if app.findtext("general/version") != current_version:
-            out_of_date[app.name] = (app.findtext("general/version"),
+            out_of_date[app.name.encode("utf_8")] = (app.findtext("general/version"),
                                      current_version)
-    out_of_date_strings = get_out_of_date_strings(out_of_date, padding=4)
+        if current_version == "Version Not Found":
+            discontinued.append((app.id, app.name.encode("utf_8")))
+
+    report.metadata["Out-of-Date Apps"] = {}
+    report.metadata["Out-of-Date Apps"]["Out-of-Date Apps"] = (
+        get_out_of_date_strings(out_of_date, padding=4))
     out_of_date_result = Result(out_of_date_strings, True,
                                 "Out-of-Date Mobile Device Applications")
     report.results.append(out_of_date_result)
 
+    discontinued_result = Result(discontinued, True,
+                                 "Apps No Longer Available")
+    report.results.append(discontinued_result)
+
     out_of_date_cruftiness = calculate_cruft(out_of_date, all_apps)
     report.metadata["Cruftiness"]["Out-of-Date App Cruftiness"] = (
         get_cruft_strings(out_of_date_cruftiness))
+
+    discontinued_cruftiness = calculate_cruft(discontinued, all_apps)
+    report.metadata["Cruftiness"]["Discontinued App Cruftiness"] = (
+        get_cruft_strings(discontinued_cruftiness))
 
     return report
 
@@ -1521,7 +1538,7 @@ def add_report_output(root, report):
             item = ET.SubElement(subreport_element, tagify(report.obj_type))
             item.text = name
             item.attrib["id"] = str(id_)
-    #pdb.set_trace()
+    pdb.set_trace()
 
     # Metadata
     for metadata, val in report.metadata.iteritems():
@@ -1531,7 +1548,8 @@ def add_report_output(root, report):
             item = ET.SubElement(metadata_element, tagify(submeta))
             for line in submeta_val:
                 value = ET.SubElement(item, "Value")
-                value.text = line.decode("utf_8").strip()
+                #value.text = line.encode("ascii", errors="replace").strip()
+                value.text = line.strip()
 
 
 def tagify(text):
@@ -1731,10 +1749,10 @@ def run_reports(args):
     if args.ofile:
         indent(output_xml)
         tree = ET.ElementTree(output_xml)
-        tree.write(os.path.expanduser(args.ofile), encoding="utf-8",
+        print ET.tostring(output_xml, encoding="utf_8")
+        tree.write(os.path.expanduser(args.ofile), encoding="utf_8",
                 xml_declaration=True)
         # TODO: Debug (Or leave in?)
-        print ET.tostring(output_xml)
 
 
 def main():
