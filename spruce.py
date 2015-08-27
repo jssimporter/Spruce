@@ -302,7 +302,7 @@ class Result(object):
 class Report(object):
     """Represents a collection of Result objects."""
 
-    def __init__(self, results, heading, metadata):
+    def __init__(self, obj_type, results, heading, metadata):
         """Init our data structure.
 
         Args:
@@ -315,6 +315,7 @@ class Report(object):
                     key: Subheading name.
                     val: String of data to print.
         """
+        self.obj_type = obj_type
         self.results = results
         self.heading = heading
         self.metadata = metadata
@@ -419,29 +420,31 @@ def build_container_report(containers_with_search_paths, jss_objects):
     """
     used_object_sets = []
     for containers, search in containers_with_search_paths:
-        #used_object_sets.append({obj.text for container in containers for obj
-        #                         in container.findall(search)})
-        used_object_sets.append({(int(obj.findtext("id")), obj.findtext("name")) for container in containers for obj
-                                 in container.findall(search) if obj.findtext("id") is not None})
+        used_object_sets.append(
+            {(int(obj.findtext("id")), obj.findtext("name"))
+             for container in containers
+             for obj in container.findall(search)
+             if obj.findtext("id") is not None})
 
     if used_object_sets:
         used = used_object_sets.pop()
         for used_object_set in used_object_sets:
             used = used.union(used_object_set)
     unused = set(jss_objects).difference(used)
-    pdb.set_trace()
-
-    results = [Result(jss_objects, False, "All"),
-               Result(used, False, "Used"),
-               Result(unused, True, "Unused")]
-    report = Report(results, "", {"Cruftiness": {}})
-    cruftiness = calculate_cruft(report.get_result_by_name("Unused").results,
-                                 report.get_result_by_name("All").results)
-    cruft_strings = get_cruft_strings(cruftiness)
+    #pdb.set_trace()
 
     # Use the xpath's second to last part to determine object type.
     obj_type = containers_with_search_paths[0][1].split(
         "/")[-2].replace("_", " ").title()
+
+    results = [Result(jss_objects, False, "All"),
+               Result(used, False, "Used"),
+               Result(unused, True, "Unused")]
+    report = Report(obj_type, results, "", {"Cruftiness": {}})
+    cruftiness = calculate_cruft(report.get_result_by_name("Unused").results,
+                                 report.get_result_by_name("All").results)
+    cruft_strings = get_cruft_strings(cruftiness)
+
     report.metadata["Cruftiness"] = {"Unscoped %s Cruftiness" % obj_type:
                                      cruft_strings}
 
@@ -789,8 +792,7 @@ def build_packages_report(**kwargs):
     all_policies = jss_connection.Policy().retrieve_all(
         subset=["general", "package_configuration", "packages"])
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
-    all_packages = [(package.id, package.name) for package in jss_connection.Package()]
-    #policy_xpath = "package_configuration/packages/package/name"
+    all_packages = [(pkg.id, pkg.name) for pkg in jss_connection.Package()]
     policy_xpath = "package_configuration/packages/package"
     config_xpath = "packages/package/name"
     report = build_container_report(
@@ -1482,29 +1484,32 @@ def get_out_of_date_strings(data, padding=0):
     return result
 
 
-def write_xml_output(results, ofile):
-    """Write the results to an xml file.
-
-    Args:
-        results: A Result object.
-        ofile: String path to desired output filename.
-    """
+def add_output_metadata(root):
     jss_connection = JSSConnection.get()
-    root = ET.Element("Spruce Report")
     report_date = ET.SubElement(root, "Report Date")
     report_date.text = datetime.datetime.strftime(datetime.datetime.now(),
                                                   "%Y%m%d-%H%M%S")
     report_server = ET.SubElement(root, "Server")
     report_server.text = jss_connection._base_url
 
-    for report in results.results:
-        report_element = ET.SubElement(root, report.heading)
-        for result in report.results:
-            ET.SubElement(report_element, result)
 
-    indent(root)
-    print ET.tostring(root)
-    pdb.set_trace()
+def add_report_output(root, report):
+    """Write the results to an xml file.
+
+    Args:
+        results: A Result object.
+        ofile: String path to desired output filename.
+    """
+    report_element = ET.SubElement(root, report.heading)
+    for result in report.results:
+        subreport_element = ET.SubElement(report_element, result.heading)
+        subreport_element.attrib["length"] = str(len(result))
+        for id_, name in sorted(result.results, key=lambda x: x[1]):
+            item = ET.SubElement(subreport_element, report.obj_type)
+            item.text = name
+            item.attrib["id"] = str(id_)
+
+    #pdb.set_trace()
 
 
 def indent(elem, level=0, more_sibs=False):
@@ -1683,14 +1688,17 @@ def run_reports(args):
         results.append(func(**args_dict))
 
     # Output the reports
+    output_xml = ET.Element("Spruce Report")
+    add_output_metadata(output_xml)
     for report in results:
         if not args.ofile:
             print
             print_output(report, args.verbose)
         else:
-            # TODO: Implement. And, should this be just one or the other?
-            write_xml_output(report, args.ofile)
+            add_report_output(output_xml, report)
 
+    indent(output_xml)
+    print ET.tostring(output_xml)
 
 def main():
     """Commandline processing."""
