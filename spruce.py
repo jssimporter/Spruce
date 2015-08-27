@@ -1511,6 +1511,7 @@ def add_report_output(root, report):
         ofile: String path to desired output filename.
     """
     report_element = ET.SubElement(root, tagify(report.heading))
+    # Results
     for result in report.results:
         subreport_element = ET.SubElement(report_element,
                                           tagify(result.heading))
@@ -1519,11 +1520,23 @@ def add_report_output(root, report):
             item = ET.SubElement(subreport_element, tagify(report.obj_type))
             item.text = name
             item.attrib["id"] = str(id_)
-
     #pdb.set_trace()
+
+    # Metadata
+    for metadata, val in report.metadata.iteritems():
+        metadata_element = ET.SubElement(report_element, tagify(metadata))
+        #subreport_element.attrib["length"] = str(len(result))
+        for submeta, submeta_val in val.iteritems():
+            item = ET.SubElement(metadata_element, tagify(submeta))
+            for line in submeta_val:
+                value = ET.SubElement(item, "Value")
+                value.text = line.decode("utf_8").strip()
+
 
 def tagify(text):
     """Make a string appropriate for XML tag names."""
+    if "(" in  text:
+        text = text.split("(")[0]
     return text.title().replace(" ", "")
 
 
@@ -1703,7 +1716,7 @@ def run_reports(args):
         results.append(func(**args_dict))
 
     # Output the reports
-    output_xml = ET.Element("Spruce Report")
+    output_xml = ET.Element("SpruceReport")
     add_output_metadata(output_xml)
 
     for report in results:
@@ -1716,9 +1729,11 @@ def run_reports(args):
 
     indent(output_xml)
     tree = ET.ElementTree(output_xml)
-    tree.write(os.path.expanduser(args.ofile))
+    tree.write(os.path.expanduser(args.ofile), encoding="utf-8",
+               xml_declaration=True)
     # TODO: Debug (Or leave in?)
     print ET.tostring(output_xml)
+
 
 def main():
     """Commandline processing."""
