@@ -1487,11 +1487,20 @@ def get_out_of_date_strings(data, padding=0):
 
 def add_output_metadata(root):
     jss_connection = JSSConnection.get()
-    report_date = ET.SubElement(root, "Report Date")
+    report_date = ET.SubElement(root, "ReportDate")
     report_date.text = datetime.datetime.strftime(datetime.datetime.now(),
                                                   "%Y%m%d-%H%M%S")
     report_server = ET.SubElement(root, "Server")
     report_server.text = jss_connection._base_url
+    api_user = ET.SubElement(root, "APIUser")
+    api_user.text = jss_connection.user
+    report_user = ET.SubElement(root, "LocalUser")
+    report_user.text = os.getenv("USER")
+    spruce_version = ET.SubElement(root, "SpruceVersion")
+    spruce_version.text = __version__
+    python_jss_version = ET.SubElement(root, "python-jssVersion")
+    python_jss_version.text = jss.__version__
+    removal = ET.SubElement(root, "Removal")
 
 
 def add_report_output(root, report):
@@ -1501,16 +1510,21 @@ def add_report_output(root, report):
         results: A Result object.
         ofile: String path to desired output filename.
     """
-    report_element = ET.SubElement(root, report.heading)
+    report_element = ET.SubElement(root, tagify(report.heading))
     for result in report.results:
-        subreport_element = ET.SubElement(report_element, result.heading)
+        subreport_element = ET.SubElement(report_element,
+                                          tagify(result.heading))
         subreport_element.attrib["length"] = str(len(result))
         for id_, name in sorted(result.results, key=lambda x: x[1]):
-            item = ET.SubElement(subreport_element, report.obj_type)
+            item = ET.SubElement(subreport_element, tagify(report.obj_type))
             item.text = name
             item.attrib["id"] = str(id_)
 
     #pdb.set_trace()
+
+def tagify(text):
+    """Make a string appropriate for XML tag names."""
+    return text.title().replace(" ", "")
 
 
 def indent(elem, level=0, more_sibs=False):
