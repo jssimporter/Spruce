@@ -795,7 +795,7 @@ def build_packages_report(**kwargs):
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
     all_packages = [(pkg.id, pkg.name) for pkg in jss_connection.Package()]
     policy_xpath = "package_configuration/packages/package"
-    config_xpath = "packages/package/name"
+    config_xpath = "packages/package"
     report = build_container_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_packages)
@@ -850,14 +850,14 @@ def build_computer_groups_report(**kwargs):
         subset=["general", "scope"])
     all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
         subset=["general", "scope"])
-    all_computer_groups = [group.name for group in
+    all_computer_groups = [(group.id, group.name) for group in
                            jss_connection.ComputerGroup()]
-    policy_xpath = "scope/computer_groups/computer_group/name"
+    policy_xpath = "scope/computer_groups/computer_group"
     policy_exclusions_xpath = (
-        "scope/exclusions/computer_groups/computer_group/name")
-    config_xpath = "scope/computer_groups/computer_group/name"
+        "scope/exclusions/computer_groups/computer_group")
+    config_xpath = "scope/computer_groups/computer_group"
     config_exclusions_xpath = (
-        "scope/exclusions/computer_groups/computer_group/name")
+        "scope/exclusions/computer_groups/computer_group")
 
     # Build results for groups which aren't scoped.
     report = build_container_report(
@@ -890,7 +890,7 @@ def build_computer_groups_report(**kwargs):
 
     # Recalculate cruftiness
     unused_cruftiness = calculate_cruft(unused_groups, all_computer_groups)
-    report.metadata["Cruftiness"]["Unscoped Computer Group Cruftiness"] = (
+    report.metadata["Cruftiness"]["Unscoped Computer Groups Cruftiness"] = (
         get_cruft_strings(unused_cruftiness))
 
     # Build Empty Groups Report.
@@ -898,7 +898,7 @@ def build_computer_groups_report(**kwargs):
     report.results.append(empty_groups)
     # Calculate empty cruftiness.
     empty_cruftiness = calculate_cruft(empty_groups, all_computer_groups)
-    report.metadata["Cruftiness"]["Empty Computer Group Cruftiness"] = (
+    report.metadata["Cruftiness"]["Empty Computer Groups Cruftiness"] = (
         get_cruft_strings(empty_cruftiness))
 
     return report
@@ -928,11 +928,11 @@ def build_device_groups_report(**kwargs):
             subset=["general", "scope"]))
     all_ebooks = (
         jss_connection.EBook().retrieve_all(subset=["general", "scope"]))
-    all_mobile_device_groups = [group.name for group in
+    all_mobile_device_groups = [(group.id, group.name) for group in
                                 jss_connection.MobileDeviceGroup()]
-    xpath = "scope/mobile_device_groups/mobile_device_group/name"
+    xpath = "scope/mobile_device_groups/mobile_device_group"
     exclusion_xpath = (
-        "scope/exclusions/mobile_device_groups/mobile_device_group/name")
+        "scope/exclusions/mobile_device_groups/mobile_device_group")
 
     # Build results for groups which aren't scoped.
     report = build_container_report(
@@ -970,7 +970,7 @@ def build_device_groups_report(**kwargs):
                                         all_mobile_device_groups)
     # And rename for better output.
     report.metadata["Cruftiness"][
-        "Unscoped Mobile Device Group Cruftiness"] = (
+        "Unscoped Mobile Device Groups Cruftiness"] = (
             get_cruft_strings(unused_cruftiness))
 
     # Build empty mobile device groups report
@@ -979,7 +979,7 @@ def build_device_groups_report(**kwargs):
     empty_cruftiness = calculate_cruft(empty_groups.results,
                                        all_mobile_device_groups)
     report.metadata["Cruftiness"][
-        "Empty Mobile Device Group Cruftiness"] = (
+        "Empty Mobile Device Groups Cruftiness"] = (
             get_cruft_strings(empty_cruftiness))
 
     return report
@@ -1250,8 +1250,9 @@ def get_empty_groups(full_groups):
         obj_type = ("mobile_devices", "Mobile Device")
     else:
         raise TypeError("Incorrect group type.")
-    groups_with_no_members = {group.name for group in full_groups if
-                              group.findtext("%s/size" % obj_type[0]) == "0"}
+    groups_with_no_members = {(group.id, group.name) for group in full_groups
+                              if group.findtext("%s/size" % obj_type[0]) ==
+                              "0"}
     return Result(groups_with_no_members, True,
                   "Empty %s Groups" % obj_type[1])
 
@@ -1727,12 +1728,13 @@ def run_reports(args):
         else:
             add_report_output(output_xml, report)
 
-    indent(output_xml)
-    tree = ET.ElementTree(output_xml)
-    tree.write(os.path.expanduser(args.ofile), encoding="utf-8",
-               xml_declaration=True)
-    # TODO: Debug (Or leave in?)
-    print ET.tostring(output_xml)
+    if args.ofile:
+        indent(output_xml)
+        tree = ET.ElementTree(output_xml)
+        tree.write(os.path.expanduser(args.ofile), encoding="utf-8",
+                xml_declaration=True)
+        # TODO: Debug (Or leave in?)
+        print ET.tostring(output_xml)
 
 
 def main():
