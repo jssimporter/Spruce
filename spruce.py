@@ -1691,7 +1691,9 @@ def run_reports(args):
     # Output the reports
     output_xml = ET.Element("Spruce Report")
     add_output_metadata(output_xml)
+
     for report in results:
+        # Print output to stdout.
         if not args.ofile:
             print
             print_output(report, args.verbose)
@@ -1699,6 +1701,9 @@ def run_reports(args):
             add_report_output(output_xml, report)
 
     indent(output_xml)
+    tree = ET.ElementTree(output_xml)
+    tree.write(os.path.expanduser(args.ofile))
+    # TODO: Debug (Or leave in?)
     print ET.tostring(output_xml)
 
 def main():
