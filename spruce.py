@@ -435,7 +435,7 @@ def build_container_report(containers_with_search_paths, jss_objects):
 
     # Use the xpath's second to last part to determine object type.
     obj_type = containers_with_search_paths[0][1].split(
-        "/")[-2].replace("_", " ").title()
+        "/")[-1].replace("_", " ").title()
 
     results = [Result(jss_objects, False, "All"),
                Result(used, False, "Used"),
