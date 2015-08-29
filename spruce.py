@@ -1321,26 +1321,6 @@ def calculate_cruft(dividend, divisor):
     return result
 
 
-def load_removal_file(filename):
-    """Get a set of files to remove from a file.
-
-    Args:
-        filename: String path to a plaintext file, comprised of a
-            single package or script filename per line.
-
-            The file may contain comments and WS. Any line starting
-            with a '#', a tab, newline, or a blank space will be
-            ignored.
-
-    Returns:
-        A set of the files and scripts to remove.
-    """
-    with open(os.path.expanduser(filename), "r") as ifile:
-        result_set = [line.rstrip("\n") for line in ifile if not
-                      line.startswith((" ", "#", "\t", "\n"))]
-    return result_set
-
-
 def print_output(report, verbose=False):
     """Print report data.
 
@@ -1515,7 +1495,7 @@ def add_output_metadata(root):
     spruce_version.text = __version__
     python_jss_version = ET.SubElement(root, "python-jssVersion")
     python_jss_version.text = jss.__version__
-    removal = ET.SubElement(root, "Removal")
+    removal = ET.SubElement(root, "Removals")
 
 
 def add_report_output(root, report):
