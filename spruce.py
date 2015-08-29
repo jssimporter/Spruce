@@ -1731,6 +1731,99 @@ def run_reports(args):
                    xml_declaration=True)
 
 
+def remove(removal_tree):
+    """Remove desired objects from the JSS and distribution points.
+
+    Given an XML file with subelement "Removals", remove each child
+    object from the JSS. The child Element must have a tag name
+    corresponding to the JSSObject class to delete (e.g. "Computer", or
+    "Policy"), with an attribute of "id" containing the object's ID.
+
+    The name is not used, as this is not always a guarantor of
+    identity.
+
+    Packages and Scripts (when applicable) will be removed from all
+    distribution points and servers that support delete methods.
+
+    Args:
+        ElementTree instance with Element "Removals", as detailed
+        above.
+    """
+    jss_connection = JSSConnection.get()
+    # Tag map is a dictionary mapping our Element tags to JSS factory
+    # methods.
+    tag_map = {"Computer": jss_connection.Computer,
+               "ComputerGroup": jss_connection.ComputerGroup,
+               "Package": jss_connection.Package,
+               "Script": jss_connection.Script,
+               "Policy": jss_connection.Policy,
+               "ComputerConfigurationProfile":
+                   jss_connection.OSXConfigurationProfile,
+               "MobileDevice": jss_connection.MobileDevice,
+               "MobileDeviceGroup": jss_connection.MobileDeviceGroup,
+               "MobileDeviceConfigurationProfile":
+                   jss_connection.MobileDeviceConfigurationProfile,
+               "MobileApplication": jss_connection.MobileDeviceApplication}
+
+    root = removal_tree.getroot()
+    removals = root.find("Removals")
+
+    # JDS and CDP distribution points do not require files to be deleted
+    # in addition to the objects being deleted (i.e. they handle it).
+    # AFP/SMB DP's on the other hand do, so first test to see if any
+    # File Share Distribution Points exist.
+    if (hasattr(jss_connection.distribution_points, "dp_info") and
+        jss_connection.distribution_points.dp_info):
+
+        # See if we are trying to delete any packages or scripts.
+        # JSS's which have been migratedd store their scripts in the
+        # database, and thus do not need to have them deleted.
+        needs_file_removal = ["Package"]
+        if not jss_connection.jss_migrated:
+            needs_file_removal.append("Script")
+
+        file_type_removals = any([removal.tag for removal in removals if
+                                  removal.tag in needs_file_removal])
+
+        if file_type_removals:
+            # Mount the shares now in preparation.
+            jss_connection.distribution_points.mount()
+    else:
+        file_type_removals = False
+
+    for item in removals:
+        # Get the item from the JSS.
+        search_func = tag_map[item.tag]
+        try:
+            obj = search_func(item.attrib["id"])
+        except jss.JSSGetError as error:
+            # Object probably no longer exists.
+            print ("Object %s with ID %s of type %s is not available or does "
+                   "not exist.\nStatus Code:%s Error: %s" % (item.text,
+                   item.attrib["id"], item.tag, error.status_code,
+                   error.message))
+            continue
+
+        # Try to delete the item.
+        try:
+            obj.delete()
+        except jss.JSSDeleteError as error:
+            print ("Object %s with ID %s of type %s failed to delete.\n"
+                   "Status Code:%s Error: %s" % (
+                       item.text, item.attrib["id"], item.tag,
+                       error.status_code, error.message))
+            continue
+
+        # If the item is a Package, or a Script on a non-migrated
+        # JSS, delete the file from the distribution points.
+        if item.tag in needs_file_removal and file_type_removals:
+            try:
+                jss_connection.distribution_points.delete(item.text)
+            except OSError as error:
+                print ("Unable to delete %s: %s with error: %s" %
+                       (item.tag, item.text, error.message))
+
+
 def main():
     """Commandline processing."""
     # Ensure we have the right version of python-jss.
@@ -1762,14 +1855,8 @@ def main():
 
     # The remove argument is mutually exclusive with the others.
     if args.remove:
-        if os.path.exists(os.path.expanduser(args.remove)):
-            removal_set = load_removal_file(args.remove)
-            remove(j, removal_set)
-            # We're done, exit.
-            sys.exit()
-        else:
-            parser.error("Removal file '%s' does not exist." % args.remove)
-
+        removal_tree = ET.parse(os.path.expanduser(args.remove))
+        remove(removal_tree)
     else:
         run_reports(args)
 
