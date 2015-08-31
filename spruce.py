@@ -1581,6 +1581,8 @@ def add_report_output(root, report):
         subreport_element = ET.SubElement(report_element,
                                           tagify(result.heading))
         subreport_element.attrib["length"] = str(len(result))
+        desc = ET.SubElement(subreport_element, "Description")
+        desc.text = result.description
         for id_, name in sorted(result.results, key=lambda x: x[1]):
             item = ET.SubElement(subreport_element, tagify(report.obj_type))
             item.text = name
@@ -1862,17 +1864,21 @@ def remove(removal_tree):
         file_type_removals = False
 
     for item in removals:
-        # Get the item from the JSS.
-        search_func = tag_map[item.tag]
-        try:
-            obj = search_func(item.attrib["id"])
-        except jss.JSSGetError as error:
-            # Object probably no longer exists.
-            print ("%s object %s with ID %s is not available or does "
-                   "not exist.\nStatus Code:%s Error: %s" % (
-                       item.tag, item.text, item.attrib["id"],
-                       error.status_code, error.message))
+        # Only try to delete members of the tag_map types.
+        search_func = tag_map.get(item.tag)
+        if not search_func:
             continue
+        else:
+            try:
+                # Get the item from the JSS.
+                obj = search_func(item.attrib["id"])
+            except jss.JSSGetError as error:
+                # Object probably no longer exists.
+                print ("%s object %s with ID %s is not available or does "
+                    "not exist.\nStatus Code:%s Error: %s" % (
+                        item.tag, item.text, item.attrib["id"],
+                        error.status_code, error.message))
+                continue
 
         # Try to delete the item.
         try:
