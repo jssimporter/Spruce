@@ -1798,19 +1798,20 @@ def remove(removal_tree):
             obj = search_func(item.attrib["id"])
         except jss.JSSGetError as error:
             # Object probably no longer exists.
-            print ("Object %s with ID %s of type %s is not available or does "
-                   "not exist.\nStatus Code:%s Error: %s" % (item.text,
-                   item.attrib["id"], item.tag, error.status_code,
-                   error.message))
+            print ("%s object %s with ID %s is not available or does "
+                   "not exist.\nStatus Code:%s Error: %s" % (
+                       item.tag, item.text, item.attrib["id"],
+                       error.status_code, error.message))
             continue
 
         # Try to delete the item.
         try:
             obj.delete()
+            print "%s object %s: %s deleted." % (item.tag, obj.id, obj.name)
         except jss.JSSDeleteError as error:
-            print ("Object %s with ID %s of type %s failed to delete.\n"
+            print ("%s object %s with ID %s failed to delete.\n"
                    "Status Code:%s Error: %s" % (
-                       item.text, item.attrib["id"], item.tag,
+                       item.tag, item.text, item.attrib["id"],
                        error.status_code, error.message))
             continue
 
@@ -1819,9 +1820,11 @@ def remove(removal_tree):
         if item.tag in needs_file_removal and file_type_removals:
             try:
                 jss_connection.distribution_points.delete(item.text)
+                print "%s file %s deleted." % (item.tag, obj.name)
             except OSError as error:
                 print ("Unable to delete %s: %s with error: %s" %
                        (item.tag, item.text, error.message))
+
 
 
 def main():
