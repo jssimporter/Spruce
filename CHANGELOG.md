@@ -10,6 +10,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Restructured arguments to prevent reporting and removal from happening at the same time.
 - Refactored to support running individual subreports (e.g. `--packages`, `--scripts`).
 - With no arguments, spruce runs as if `--all` had been specified (meaning run all reports).
+- Reimplemented removals to use an XML file. See the documentation for details on the structure of this file.
+
+### ADDED
 - Added cute conifers.
 - Added Computer Group report.
 - Add cruftiness score, and other metadata.
@@ -21,6 +24,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Added Ranks (levels of cruftiness).
 - Added histograms (used for things like version spread)
 - Added Mobile Device Application report.
+- Added XML output option. This is now the easiest way to generate output for later deletion.
+- Added specific descriptions of the reports.
+
+### REMOVED
+- No longer allows old-style of removal file. (See docs for XML format).
+- Removed full-auto report and clean options.
 
 ## [1.0.1] - 2015-05-04 Chihuahua Spruce
 ### CHANGED

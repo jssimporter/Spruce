@@ -91,6 +91,7 @@ import pdb
 import re
 import subprocess
 import sys
+import textwrap
 from xml.etree import ElementTree as ET
 
 # pylint: disable=no-name-in-module
@@ -281,18 +282,21 @@ class JSSConnection(object):
 class Result(object):
     """Encapsulates the metadata and results from a report."""
 
-    def __init__(self, results, verbose, heading):
+    def __init__(self, results, verbose, heading, description=""):
         """Init our data structure.
 
         Args:
             results: A set of strings of some JSSObject names.
             include_in_non_verbose: Bool whether or not report will be
                 included in non-verbose output.
-            heading: String heading describing the results.
+            heading: String heading summarizing the results.
+            description: Longer string describing the meaning of the
+                results.
         """
         self.results = results
         self.include_in_non_verbose = verbose
         self.heading = heading
+        self.description = description
 
     def __len__(self):
         """Return the length of the results list."""
@@ -437,9 +441,11 @@ def build_container_report(containers_with_search_paths, jss_objects):
     obj_type = containers_with_search_paths[0][1].split(
         "/")[-1].replace("_", " ").title()
 
-    results = [Result(jss_objects, False, "All"),
-               Result(used, False, "Used"),
-               Result(unused, True, "Unused")]
+    all_result = Result(jss_objects, False, "All", "All %ss on the JSS." %
+                        obj_type)
+    used_result = Result(used, False, "Used")
+    unused_result = Result(unused, True, "Unused")
+    results = [all_result, used_result, unused_result]
     report = Report(obj_type, results, "", {"Cruftiness": {}})
     cruftiness = calculate_cruft(report.get_result_by_name("Unused").results,
                                  report.get_result_by_name("All").results)
@@ -528,8 +534,12 @@ def get_out_of_date_devices(check_in_period, devices):
                                 out_of_date):
             out_of_date_devices.append((device.id, device.name))
 
+    description = ("This report collects %ss which have not checked in for "
+        "more than %i days (%s) based on their %s property." % (
+            device_name, check_in_period, out_of_date, check_in.split("/")[1]))
     out_of_date_report = Result(
-        out_of_date_devices, True, "Out of Date %ss" % device_name)
+        out_of_date_devices, True, "Out of Date %ss" % device_name,
+        description)
 
     out_of_date_cruftiness = calculate_cruft(
         out_of_date_report.results, devices)
@@ -553,8 +563,11 @@ def get_orphaned_devices(devices):
     device_name = device_type(devices)
     orphaned_devices = [(device.id, device.name) for device in devices if
                         has_no_group_membership(device)]
+    description = ("This report collects %ss which do not belong to any "
+                   "static or smart groups." % device_name)
     orphan_report = Result(orphaned_devices, True,
-                           "%ss With no Group Membership" % device_name)
+                           "%ss With no Group Membership" % device_name,
+                           description)
 
     orphan_cruftiness = calculate_cruft(orphan_report.results, devices)
     cruftiness = get_cruft_strings(orphan_cruftiness)
@@ -799,6 +812,12 @@ def build_packages_report(**kwargs):
     report = build_container_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_packages)
+    report.get_result_by_name("Used").description = (
+        "All packages which are installed by policies or imaging "
+        "configurations.")
+    report.get_result_by_name("Unused").description = (
+        "All packages which are not installed by any policies or imaging "
+        "configurations.")
 
     report.heading = "Package Usage Report"
 
@@ -828,6 +847,12 @@ def build_scripts_report(**kwargs):
     report = build_container_report(
         [(all_policies, policy_xpath), (all_configs, config_xpath)],
         all_scripts)
+    report.get_result_by_name("Used").description = (
+        "All scripts which are installed by policies or imaging "
+        "configurations.")
+    report.get_result_by_name("Unused").description = (
+        "All scripts which are not installed by any policies or imaging "
+        "configurations.")
 
     report.heading = "Script Usage Report"
 
@@ -867,6 +892,18 @@ def build_computer_groups_report(**kwargs):
         all_computer_groups)
 
     report.heading = "Computer Group Usage Report"
+    report.get_result_by_name("Used").description = (
+        "All groups which participate in scoping. Computer groups are "
+        "considered to be in-use if they are designated in the scope or the "
+        "exclusions of a policy or a configuration profile. This report "
+        "includes all groups which are nested inside of smart groups using "
+        "the 'member_of' criterion.")
+    report.get_result_by_name("Unused").description = (
+        "All groups which do not participate in scoping. Computer groups are "
+        "considered to be in-use if they are designated in the scope or the "
+        "exclusions of a policy or a configuration profile. This report "
+        "includes all groups which are nested inside of smart groups using "
+        "the 'member_of' criterion.")
 
     # More work to be done, since Smart Groups can nest other groups.
     # We want to remove any groups nested (at any level) within a group
@@ -891,7 +928,7 @@ def build_computer_groups_report(**kwargs):
 
     # Recalculate cruftiness
     unused_cruftiness = calculate_cruft(unused_groups, all_computer_groups)
-    report.metadata["Cruftiness"]["Unscoped Computer Groups Cruftiness"] = (
+    report.metadata["Cruftiness"]["Unscoped Computer Group Cruftiness"] = (
         get_cruft_strings(unused_cruftiness))
 
     # Build Empty Groups Report.
@@ -899,7 +936,7 @@ def build_computer_groups_report(**kwargs):
     report.results.append(empty_groups)
     # Calculate empty cruftiness.
     empty_cruftiness = calculate_cruft(empty_groups, all_computer_groups)
-    report.metadata["Cruftiness"]["Empty Computer Groups Cruftiness"] = (
+    report.metadata["Cruftiness"]["Empty Computer Group Cruftiness"] = (
         get_cruft_strings(empty_cruftiness))
 
     return report
@@ -944,6 +981,18 @@ def build_device_groups_report(**kwargs):
          (all_ebooks, xpath), (all_ebooks, exclusion_xpath)],
         all_mobile_device_groups)
     report.heading = "Mobile Device Group Usage Report"
+    report.get_result_by_name("Used").description = (
+        "All groups which participate in scoping. Mobile device groups are "
+        "considered to be in-use if they are designated in the scope or the "
+        "exclusions of a configuration profile, provisioning profile, app, "
+        "or ebook. This report includes all groups which are nested inside "
+        "of smart groups using the 'member_of' criterion.")
+    report.get_result_by_name("Unused").description = (
+        "All groups which participate in scoping. Mobile device groups are "
+        "considered to be in-use if they are designated in the scope or the "
+        "exclusions of a configuration profile, provisioning profile, app, "
+        "or ebook. This report includes all groups which are nested inside "
+        "of smart groups using the 'member_of' criterion.")
 
     # More work to be done, since Smart Groups can nest other groups.
     # We want to remove any groups nested (at any level) within a group
@@ -971,7 +1020,7 @@ def build_device_groups_report(**kwargs):
                                         all_mobile_device_groups)
     # And rename for better output.
     report.metadata["Cruftiness"][
-        "Unscoped Mobile Device Groups Cruftiness"] = (
+        "Unscoped Mobile Device Group Cruftiness"] = (
             get_cruft_strings(unused_cruftiness))
 
     # Build empty mobile device groups report
@@ -980,7 +1029,7 @@ def build_device_groups_report(**kwargs):
     empty_cruftiness = calculate_cruft(empty_groups.results,
                                        all_mobile_device_groups)
     report.metadata["Cruftiness"][
-        "Empty Mobile Device Groups Cruftiness"] = (
+        "Empty Mobile Device Group Cruftiness"] = (
             get_cruft_strings(empty_cruftiness))
 
     return report
@@ -1007,16 +1056,21 @@ def build_policies_report(**kwargs):
                              "scope/computer_groups/computer_group") and
                          not policy.findall("scope/buildings/building") and
                          not policy.findall("scope/departments/department")]
-    unscoped = Result(unscoped_policies, True, "Policies not Scoped")
+    desc = ("Policies which are not scoped to any computers, computer groups, "
+            "buildings, departments, or to the all_computers meta-scope.")
+    unscoped = Result(unscoped_policies, True, "Policies not Scoped", desc)
     unscoped_cruftiness = calculate_cruft(unscoped_policies, all_policies)
 
     disabled_policies = [(policy.id, policy.name) for policy in all_policies if
                          policy.findtext("general/enabled") == "false"]
-    disabled = Result(disabled_policies, True, "Disabled Policies")
+    disabled = Result(disabled_policies, True, "Disabled Policies",
+                      "Policies which are currently disabled "
+                      "(Policy/General/Enabled toggle).")
     disabled_cruftiness = calculate_cruft(disabled_policies, all_policies)
 
     report = Report("Policy", [unscoped, disabled], "Policy Report",
                     {"Cruftiness": {}})
+
     report.metadata["Cruftiness"]["Unscoped Policy Cruftiness"] = (
         get_cruft_strings(unscoped_cruftiness))
     report.metadata["Cruftiness"]["Disabled Policy Cruftiness"] = (
@@ -1046,8 +1100,11 @@ def build_config_profiles_report(**kwargs):
                                            "computer_group") and
                         not config.findall("scope/buildings/building") and
                         not config.findall("scope/departments/department")]
+    desc = ("Computer configuration profiles which are not scoped to any "
+            "computers, computer groups, buildings, departments, or to the "
+            "all_computers meta-scope.")
     unscoped = Result(unscoped_configs, True,
-                      "Computer Configuration Profiles not Scoped")
+                      "Computer Configuration Profiles not Scoped", desc)
     unscoped_cruftiness = calculate_cruft(unscoped_configs, all_configs)
 
 
@@ -1086,8 +1143,11 @@ def build_md_config_profiles_report(**kwargs):
                             "scope/jss_user_groups/user_group")
                         and not config.findall("scope/buildings/building") and
                         not config.findall("scope/departments/department")]
+    desc = ("Mobile device configuration profiles which are not scoped to any "
+            "devices, device groups, users, user groups, buildings, "
+            "departments, or to the all_mobile_devices meta-scope.")
     unscoped = Result(unscoped_configs, True,
-                      "Mobile Device Configuration Profiles not Scoped")
+                      "Mobile Device Configuration Profiles not Scoped", desc)
     unscoped_cruftiness = calculate_cruft(unscoped_configs, all_configs)
 
 
@@ -1115,7 +1175,6 @@ def build_apps_report(**kwargs):
             subset=["general", "scope"]))
 
     # Find apps not scoped anywhere.
-    # TODO: Do md_config_profiles need the scope/all_users search?
     unscoped_apps = [(app.id, app.name) for app in all_apps if
                      app.findtext("scope/all_mobile_devices") == "false" and
                      app.findtext("scope/all_jss_users") == "false" and not
@@ -1127,10 +1186,13 @@ def build_apps_report(**kwargs):
                          "scope/jss_user_groups/user_group") and
                      not app.findall("scope/buildings/building") and not
                      app.findall("scope/departments/department")]
+    desc = ("Mobile Applications which are not scoped to any "
+            "devices, device groups, users, user groups, buildings, "
+            "departments, or to the all_mobile_devices or all_jss_users "
+            "meta-scopes.")
     unscoped = Result(unscoped_apps, True,
-                      "Mobile Device Applications not Scoped")
+                      "Mobile Device Applications not Scoped", desc)
     unscoped_cruftiness = calculate_cruft(unscoped_apps, all_apps)
-
 
     report = Report("Mobile Application", [unscoped],
                     "Mobile Device Application Report", {"Cruftiness": {}})
@@ -1158,8 +1220,10 @@ def build_apps_report(**kwargs):
     report.metadata["Out-of-Date Apps"]["Out-of-Date Apps"] = (
         get_out_of_date_strings(out_of_date, padding=4))
 
+    desc = ("Mobile applications which are no longer available from the Apple "
+            " App Store.")
     discontinued_result = Result(discontinued, True,
-                                 "Apps No Longer Available")
+                                 "Apps No Longer Available", desc)
     report.results.append(discontinued_result)
 
     out_of_date_cruftiness = calculate_cruft(out_of_date, all_apps)
@@ -1249,10 +1313,10 @@ def get_names_from_full_objects(objects):
 
 
 def get_empty_groups(full_groups):
-    """Return all computer groups with no members as a Result.
+    """Return all groups with no members as a Result.
 
     Args:
-        full_groups: list of all computer groups from jss; i.e.
+        full_groups: list of all groups from jss; i.e.
             jss_connection.ComputerGroup().retrieve_all()
 
     Returns:
@@ -1268,7 +1332,8 @@ def get_empty_groups(full_groups):
                               if group.findtext("%s/size" % obj_type[0]) ==
                               "0"}
     return Result(groups_with_no_members, True,
-                  "Empty %s Groups" % obj_type[1])
+                  "Empty %s Groups" % obj_type[1],
+                  "%s groups which have no members." % obj_type[1])
 
 
 def has_no_group_membership(device):
@@ -1329,13 +1394,18 @@ def print_output(report, verbose=False):
         verbose: Bool, whether to print all results or just unused
             results.
     """
-    print "%s  %s %s" % (10 * SPRUCE, report.heading, 50 * SPRUCE)
+    # Indent is a space and a spruce emoji wide (so 3).
+    indent = 3 * " "
+    forest_length = (64 - len(report.heading)) / 2
+    print "%s  %s %s " % (SPRUCE, report.heading, SPRUCE * forest_length)
     for result in report.results:
         if not result.include_in_non_verbose and not verbose:
             continue
         else:
             print "\n%s  %s (%i)" % (
                 SPRUCE, result.heading, len(result.results))
+            print textwrap.fill(result.description, initial_indent=indent,
+                                subsequent_indent=indent) + "\n"
             for line in sorted(result.results,
                                key=lambda s: s[1].upper().strip()):
                 print "\t%s" % line[1]
@@ -1824,7 +1894,6 @@ def remove(removal_tree):
             except OSError as error:
                 print ("Unable to delete %s: %s with error: %s" %
                        (item.tag, item.text, error.message))
-
 
 
 def main():
