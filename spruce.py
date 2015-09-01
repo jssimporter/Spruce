@@ -1763,7 +1763,7 @@ def run_reports(args):
             tree.write(os.path.expanduser(args.ofile), encoding="UTF-8",
                     xml_declaration=True)
             print "%s  Wrote output to %s" % (SPRUCE, args.ofile)
-        except OSError:
+        except IOError:
             print "Error writing output to %s" % args.ofile
             sys.exit(1)
 
@@ -1786,6 +1786,8 @@ def remove(removal_tree):
         ElementTree instance with Element "Removals", as detailed
         above.
     """
+    if not check_with_user():
+        sys.exit(0)
     jss_connection = JSSConnection.get()
     # Tag map is a dictionary mapping our Element tags to JSS factory
     # methods.
@@ -1865,6 +1867,17 @@ def remove(removal_tree):
             except OSError as error:
                 print ("Unable to delete %s: %s with error: %s" %
                        (item.tag, item.text, error.message))
+
+
+def check_with_user():
+    jss_connection = JSSConnection.get()
+    response = raw_input("Are you sure you want to continue deleting objects "
+                         "from %s? (Y or N): " % jss_connection.base_url)
+    if response.strip().upper() in ["Y", "YES"]:
+        result = True
+    else:
+        result = False
+    return result
 
 
 def main():
