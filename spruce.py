@@ -1421,11 +1421,17 @@ def print_output(report, verbose=False):
         else:
             print "\n%s  %s (%i)" % (
                 SPRUCE, result.heading, len(result.results))
-            print textwrap.fill(result.description, initial_indent=indent,
-                                subsequent_indent=indent) + "\n"
+            if result.description:
+                print textwrap.fill(result.description, initial_indent=indent,
+                                    subsequent_indent=indent)
+            print
             for line in sorted(result.results,
                                key=lambda s: s[1].upper().strip()):
-                print "\t%s" % line[1]
+                if line[1].strip() == "":
+                    text = "(***NO NAME: ID is %s***)" % line[0]
+                else:
+                    text = line[1]
+                print "\t%s" % text
 
     for heading, subsection in report.metadata.iteritems():
         print "\n%s  %s %s" % (SPRUCE, heading, SPRUCE)
@@ -1595,6 +1601,8 @@ def add_report_output(root, report):
     report_element = ET.SubElement(root, tagify(report.heading))
     # Results
     for result in report.results:
+        if not result.include_in_non_verbose:
+            continue
         subreport_element = ET.SubElement(report_element,
                                           tagify(result.heading))
         subreport_element.attrib["length"] = str(len(result))
