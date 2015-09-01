@@ -282,6 +282,7 @@ class AppStoreVersionParser(HTMLParser):
     def __init__(self):
         HTMLParser.__init__(self)
         self.version = "Version Not Found"
+        self.in_version_span = False
 
     def reset(self):
         """Manage data state to know when we are in the version span."""
@@ -358,8 +359,8 @@ def build_container_report(containers_with_search_paths, jss_objects):
                         obj_type)
     used_result = Result(used, False, "Used")
     unused_result = Result(unused, True, "Unused")
-    results = [all_result, used_result, unused_result]
-    report = Report(obj_type, results, "", {"Cruftiness": {}})
+    report = Report(obj_type, [all_result, used_result, unused_result],
+                    "", {"Cruftiness": {}})
     cruftiness = calculate_cruft(report.get_result_by_name("Unused").results,
                                  report.get_result_by_name("All").results)
     cruft_strings = get_cruft_strings(cruftiness)
@@ -545,16 +546,15 @@ def get_version_and_model_spread(devices):
 
     # Report on OS version spread
     strings = sorted(get_histogram_strings(version_counts, padding=8))
-    count_dict = {"%s Version Histogram (%s)" % (os_type, total): strings}
-    version_metadata = count_dict
+    version_metadata = {"%s Version Histogram (%s)" % (os_type, total):
+                        strings}
 
     # Report on Model Spread
     # Compare on the model identifier since it is an easy numerical
     # sort.
     strings = sorted(get_histogram_strings(model_counts, padding=8),
                      cmp=model_identifier_cmp)
-    count_dict = {"Hardware Model Histogram (%s)" % total: strings}
-    model_metadata = count_dict
+    model_metadata = {"Hardware Model Histogram (%s)" % total: strings}
 
     return (version_metadata, model_metadata)
 
@@ -795,17 +795,16 @@ def build_computer_groups_report(**kwargs):
         subset=["general", "scope"])
     all_computer_groups = [(group.id, group.name) for group in
                            jss_connection.ComputerGroup()]
-    policy_xpath = "scope/computer_groups/computer_group"
-    policy_exclusions_xpath = (
-        "scope/exclusions/computer_groups/computer_group")
-    config_xpath = "scope/computer_groups/computer_group"
-    config_exclusions_xpath = (
+    scope_xpath = "scope/computer_groups/computer_group"
+    scope_exclusions_xpath = (
         "scope/exclusions/computer_groups/computer_group")
 
     # Build results for groups which aren't scoped.
     report = build_container_report(
-        [(all_policies, policy_xpath), (all_policies, policy_exclusions_xpath),
-         (all_configs, config_xpath), (all_configs, config_exclusions_xpath)],
+        [(all_policies, scope_xpath),
+         (all_policies, scope_exclusions_xpath),
+         (all_configs, scope_xpath),
+         (all_configs, scope_exclusions_xpath)],
         all_computer_groups)
 
     report.heading = "Computer Group Usage Report"
@@ -1148,7 +1147,7 @@ def build_apps_report(**kwargs):
 
     report.metadata["Out-of-Date Apps"] = {}
     report.metadata["Out-of-Date Apps"]["Out-of-Date Apps"] = (
-        get_out_of_date_strings(out_of_date, padding=4))
+        get_out_of_date_strings(out_of_date))
 
     desc = ("Mobile applications which are no longer available from the Apple "
             " App Store.")
@@ -1437,7 +1436,6 @@ def get_histogram_strings(data, padding=0, hist_char="\xf0\x9f\x8d\x95"):
     max_key_width = max([len(key) for key in data])
     max_val_width = max([len(str(val)) for val in data.values()])
     max_value = max(data.values())
-    osx_clients = sum(data.values())
     _, width = get_terminal_size()
     # Find the length we have left for the histogram bars.
     # Magic number 6 is the _():_ parts of the string, and the
@@ -1454,7 +1452,7 @@ def get_histogram_strings(data, padding=0, hist_char="\xf0\x9f\x8d\x95"):
     return result
 
 
-def get_out_of_date_strings(data, padding=0):
+def get_out_of_date_strings(data):
     """Build a list of strings for data with three items.
 
     Given a dictionary of items, generate a list of column aligned,
@@ -1464,10 +1462,6 @@ def get_out_of_date_strings(data, padding=0):
         data: Dict with
             key: string heading/name
             val: 2-Tuple of data to fill in string.
-        padding: int number of characters to subtract from max bar
-            size. Defaults to zero. (If you intend on indenting, the
-            indent level should be specified to make sure large bars
-            don't overflow the length of the terminal.
 
     Returns:
         List of strings ready to print.
@@ -1488,12 +1482,17 @@ def get_out_of_date_strings(data, padding=0):
 
 
 def add_output_metadata(root):
+    """Build the main metadata and tags for an XML report.
+
+    Args:
+        root: Element to be used as the root for the report.
+    """
     jss_connection = JSSConnection.get()
     report_date = ET.SubElement(root, "ReportDate")
     report_date.text = datetime.datetime.strftime(datetime.datetime.now(),
                                                   "%Y%m%d-%H%M%S")
     report_server = ET.SubElement(root, "Server")
-    report_server.text = jss_connection._base_url
+    report_server.text = jss_connection.base_url
     api_user = ET.SubElement(root, "APIUser")
     api_user.text = jss_connection.user
     report_user = ET.SubElement(root, "LocalUser")
@@ -1502,7 +1501,7 @@ def add_output_metadata(root):
     spruce_version.text = __version__
     python_jss_version = ET.SubElement(root, "python-jssVersion")
     python_jss_version.text = jss.__version__
-    removal = ET.SubElement(root, "Removals")
+    ET.SubElement(root, "Removals")
 
 
 def add_report_output(root, report):
@@ -1737,9 +1736,14 @@ def run_reports(args):
     if args.ofile:
         indent(output_xml)
         tree = ET.ElementTree(output_xml)
-        print ET.tostring(output_xml, encoding="UTF-8")
-        tree.write(os.path.expanduser(args.ofile), encoding="UTF-8",
-                   xml_declaration=True)
+        #print ET.tostring(output_xml, encoding="UTF-8")
+        try:
+            tree.write(os.path.expanduser(args.ofile), encoding="UTF-8",
+                    xml_declaration=True)
+            print "Wrote output to %s" % args.ofile
+        except OSError:
+            print "Error writing output to %s" % args.ofile
+            sys.exit(1)
 
 
 def remove(removal_tree):
@@ -1866,7 +1870,7 @@ def main():
             sys.exit("No python-jss or AutoPKG/JSSImporter configuration "
                      "file!")
 
-    j = JSSConnection.setup(connection)
+    JSSConnection.setup(connection)
 
     # Determine actions based on supplied arguments.
 
