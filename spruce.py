@@ -1830,7 +1830,14 @@ def remove(removal_tree):
     else:
         file_type_removals = False
 
+    # Remove duplicate items.
+    removals_set = ET.Element("Removals")
     for item in removals:
+        if not item.attrib["id"] in [obj.get("id") for obj in
+                                     removals_set.findall(item.tag)]:
+            removals_set.append(item)
+
+    for item in removals_set:
         # Only try to delete members of the tag_map types.
         search_func = tag_map.get(item.tag)
         if not search_func:
