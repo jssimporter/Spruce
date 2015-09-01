@@ -245,6 +245,8 @@ class Report(object):
         """Init our data structure.
 
         Args:
+            obj_type: String object type name (as returned by
+                device_type)
             results: A list of Result objects to include in the
                 report.
             heading: String heading describing the report.
@@ -628,7 +630,10 @@ def build_computers_report(check_in_period, **kwargs):
     all_computers = jss_connection.Computer().retrieve_all(
         subset=["general", "hardware", "groups_accounts"])
 
-    report = build_device_report(check_in_period, all_computers)
+    if all_computers:
+        report = build_device_report(check_in_period, all_computers)
+    else:
+        report = Report("Computer", [], "Computer Report", {})
 
     return report
 
@@ -658,7 +663,10 @@ def build_mobile_devices_report(check_in_period, **kwargs):
     mobile_devices = jss_connection.MobileDevice().retrieve_all(
         subset=["general", "mobile_device_groups", "mobiledevicegroups"])
 
-    report = build_device_report(check_in_period, mobile_devices)
+    if mobile_devices:
+        report = build_device_report(check_in_period, mobile_devices)
+    else:
+        report = Report("MobileDevice", [], "Mobile Device Report", {})
 
     return report
 
@@ -724,19 +732,22 @@ def build_packages_report(**kwargs):
         subset=["general", "package_configuration", "packages"])
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
     all_packages = [(pkg.id, pkg.name) for pkg in jss_connection.Package()]
-    policy_xpath = "package_configuration/packages/package"
-    config_xpath = "packages/package"
-    report = build_container_report(
-        [(all_policies, policy_xpath), (all_configs, config_xpath)],
-        all_packages)
-    report.get_result_by_name("Used").description = (
-        "All packages which are installed by policies or imaging "
-        "configurations.")
-    report.get_result_by_name("Unused").description = (
-        "All packages which are not installed by any policies or imaging "
-        "configurations.")
+    if not all_packages:
+        report = Report("Package", [], "Package Usage Report", {})
+    else:
+        policy_xpath = "package_configuration/packages/package"
+        config_xpath = "packages/package"
+        report = build_container_report(
+            [(all_policies, policy_xpath), (all_configs, config_xpath)],
+            all_packages)
+        report.get_result_by_name("Used").description = (
+            "All packages which are installed by policies or imaging "
+            "configurations.")
+        report.get_result_by_name("Unused").description = (
+            "All packages which are not installed by any policies or imaging "
+            "configurations.")
 
-    report.heading = "Package Usage Report"
+        report.heading = "Package Usage Report"
 
     return report
 
@@ -759,19 +770,78 @@ def build_scripts_report(**kwargs):
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
     all_scripts = [(script.id, script.name) for script in
                    jss_connection.Script()]
-    policy_xpath = "scripts/script"
-    config_xpath = "scripts/script"
-    report = build_container_report(
-        [(all_policies, policy_xpath), (all_configs, config_xpath)],
-        all_scripts)
-    report.get_result_by_name("Used").description = (
-        "All scripts which are installed by policies or imaging "
-        "configurations.")
-    report.get_result_by_name("Unused").description = (
-        "All scripts which are not installed by any policies or imaging "
-        "configurations.")
+    if not all_scripts:
+        report = Report("Script", [], "Script Usage Report", {})
+    else:
+        policy_xpath = "scripts/script"
+        config_xpath = "scripts/script"
+        report = build_container_report(
+            [(all_policies, policy_xpath), (all_configs, config_xpath)],
+            all_scripts)
+        report.get_result_by_name("Used").description = (
+            "All scripts which are installed by policies or imaging "
+            "configurations.")
+        report.get_result_by_name("Unused").description = (
+            "All scripts which are not installed by any policies or imaging "
+            "configurations.")
 
-    report.heading = "Script Usage Report"
+        report.heading = "Script Usage Report"
+
+    return report
+
+
+def build_group_report(container_searches, groups_names, full_groups):
+    """Report on group usage.
+
+    Looks for computer or mobile device groups with no members. This
+    does not mean they neccessarily are in-need-of-deletion.
+
+    Args:
+        container_searches: List of tuples to be passed to
+            build_container_report.
+        groups: List of (id, name) tuples for all groups on the JSS.
+        full_groups: List of full JSSObject data for groups.
+
+    Returns:
+        A Report object.
+    """
+    obj_type = device_type(full_groups)
+    # Build results for groups which aren't scoped.
+    report = build_container_report(container_searches, groups_names)
+
+    # More work to be done, since Smart Groups can nest other groups.
+    # We want to remove any groups nested (at any level) within a group
+    # that is used.
+
+    # For convenience, pull out unused and used sets.
+    unused_groups = report.get_result_by_name("Unused").results
+    used_groups = report.get_result_by_name("Used").results
+    used_full_group_objects = get_full_groups_from_names(used_groups,
+                                                         full_groups)
+
+    full_used_nested_groups = get_nested_groups(used_full_group_objects,
+                                                full_groups)
+    used_nested_groups = get_names_from_full_objects(full_used_nested_groups)
+
+    # Remove the nested groups from the unused list and add to the used.
+    unused_groups.difference_update(used_nested_groups)
+    # There's no harm in doing a union with the nested used groups vs.
+    # adding _just_ the ones removed from unused_groups.
+    used_groups.update(used_nested_groups)
+
+    # Recalculate cruftiness
+    unused_cruftiness = calculate_cruft(unused_groups, groups_names)
+    report.metadata["Cruftiness"][
+        "Unscoped %s Cruftiness" % obj_type] = (
+            get_cruft_strings(unused_cruftiness))
+
+    # Build Empty Groups Report.
+    empty_groups = get_empty_groups(full_groups)
+    report.results.append(empty_groups)
+    # Calculate empty cruftiness.
+    empty_cruftiness = calculate_cruft(empty_groups, groups_names)
+    report.metadata["Cruftiness"]["Empty Group Cruftiness"] = (
+        get_cruft_strings(empty_cruftiness))
 
     return report
 
@@ -789,23 +859,28 @@ def build_computer_groups_report(**kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
+    group_list = jss_connection.ComputerGroup()
+    if not group_list:
+        return Report("ComputerGroup", [], "Computer Group Report", {})
+
+    all_computer_groups = [(group.id, group.name) for group in group_list]
+    full_groups = group_list.retrieve_all()
+
     all_policies = jss_connection.Policy().retrieve_all(
         subset=["general", "scope"])
     all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
         subset=["general", "scope"])
-    all_computer_groups = [(group.id, group.name) for group in
-                           jss_connection.ComputerGroup()]
     scope_xpath = "scope/computer_groups/computer_group"
     scope_exclusions_xpath = (
         "scope/exclusions/computer_groups/computer_group")
 
     # Build results for groups which aren't scoped.
-    report = build_container_report(
+    report = build_group_report(
         [(all_policies, scope_xpath),
          (all_policies, scope_exclusions_xpath),
          (all_configs, scope_xpath),
          (all_configs, scope_exclusions_xpath)],
-        all_computer_groups)
+        all_computer_groups, full_groups)
 
     report.heading = "Computer Group Usage Report"
     report.get_result_by_name("Used").description = (
@@ -820,40 +895,6 @@ def build_computer_groups_report(**kwargs):
         "exclusions of a policy or a configuration profile. This report "
         "includes all groups which are nested inside of smart groups using "
         "the 'member_of' criterion.")
-
-    # More work to be done, since Smart Groups can nest other groups.
-    # We want to remove any groups nested (at any level) within a group
-    # that is used.
-
-    # For convenience, pull out unused and used sets.
-    unused_groups = report.get_result_by_name("Unused").results
-    used_groups = report.get_result_by_name("Used").results
-    full_groups = jss_connection.ComputerGroup().retrieve_all()
-    used_full_group_objects = get_full_groups_from_names(used_groups,
-                                                         full_groups)
-
-    full_used_nested_groups = get_nested_groups(used_full_group_objects,
-                                                full_groups)
-    used_nested_groups = get_names_from_full_objects(full_used_nested_groups)
-
-    # Remove the nested groups from the unused list and add to the used.
-    unused_groups.difference_update(used_nested_groups)
-    # There's no harm in doing a union with the nested used groups vs.
-    # adding _just_ the ones removed from unused_groups.
-    used_groups.update(used_nested_groups)
-
-    # Recalculate cruftiness
-    unused_cruftiness = calculate_cruft(unused_groups, all_computer_groups)
-    report.metadata["Cruftiness"]["Unscoped Computer Group Cruftiness"] = (
-        get_cruft_strings(unused_cruftiness))
-
-    # Build Empty Groups Report.
-    empty_groups = get_empty_groups(full_groups)
-    report.results.append(empty_groups)
-    # Calculate empty cruftiness.
-    empty_cruftiness = calculate_cruft(empty_groups, all_computer_groups)
-    report.metadata["Cruftiness"]["Empty Computer Group Cruftiness"] = (
-        get_cruft_strings(empty_cruftiness))
 
     return report
 
@@ -871,6 +912,14 @@ def build_device_groups_report(**kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
+    group_list = jss_connection.MobileDeviceGroup()
+    if not group_list:
+        return Report("MobileDeviceGroup", [], "Mobile Device Group Report",
+                      {})
+
+    all_mobile_device_groups = [(group.id, group.name) for group in group_list]
+    full_groups = group_list.retrieve_all()
+
     all_configs = (
         jss_connection.MobileDeviceConfigurationProfile().retrieve_all(
             subset=["general", "scope"]))
@@ -882,20 +931,18 @@ def build_device_groups_report(**kwargs):
             subset=["general", "scope"]))
     all_ebooks = (
         jss_connection.EBook().retrieve_all(subset=["general", "scope"]))
-    all_mobile_device_groups = [(group.id, group.name) for group in
-                                jss_connection.MobileDeviceGroup()]
     xpath = "scope/mobile_device_groups/mobile_device_group"
     exclusion_xpath = (
         "scope/exclusions/mobile_device_groups/mobile_device_group")
 
     # Build results for groups which aren't scoped.
-    report = build_container_report(
+    report = build_group_report(
         [(all_configs, xpath), (all_configs, exclusion_xpath),
          (all_provisioning_profiles, xpath),
          (all_provisioning_profiles, exclusion_xpath),
          (all_apps, xpath), (all_apps, exclusion_xpath),
          (all_ebooks, xpath), (all_ebooks, exclusion_xpath)],
-        all_mobile_device_groups)
+        all_mobile_device_groups, full_groups)
     report.heading = "Mobile Device Group Usage Report"
     report.get_result_by_name("Used").description = (
         "All groups which participate in scoping. Mobile device groups are "
@@ -904,49 +951,11 @@ def build_device_groups_report(**kwargs):
         "or ebook. This report includes all groups which are nested inside "
         "of smart groups using the 'member_of' criterion.")
     report.get_result_by_name("Unused").description = (
-        "All groups which participate in scoping. Mobile device groups are "
-        "considered to be in-use if they are designated in the scope or the "
-        "exclusions of a configuration profile, provisioning profile, app, "
-        "or ebook. This report includes all groups which are nested inside "
-        "of smart groups using the 'member_of' criterion.")
-
-    # More work to be done, since Smart Groups can nest other groups.
-    # We want to remove any groups nested (at any level) within a group
-    # that is used.
-
-    # For convenience, pull out unused and used sets.
-    unused_groups = report.get_result_by_name("Unused").results
-    used_groups = report.get_result_by_name("Used").results
-    full_groups = jss_connection.MobileDeviceGroup().retrieve_all()
-    used_full_group_objects = get_full_groups_from_names(used_groups,
-                                                         full_groups)
-
-    full_used_nested_groups = get_nested_groups(used_full_group_objects,
-                                                full_groups)
-    used_nested_groups = get_names_from_full_objects(full_used_nested_groups)
-
-    # Remove the nested groups from the unused list and add to the used.
-    unused_groups.difference_update(used_nested_groups)
-    # There's no harm in doing a union with the nested used groups vs.
-    # adding _just_ the ones removed from unused_groups.
-    used_groups.update(used_nested_groups)
-
-    # Recalculate cruftiness
-    unused_cruftiness = calculate_cruft(unused_groups,
-                                        all_mobile_device_groups)
-    # And rename for better output.
-    report.metadata["Cruftiness"][
-        "Unscoped Mobile Device Group Cruftiness"] = (
-            get_cruft_strings(unused_cruftiness))
-
-    # Build empty mobile device groups report
-    empty_groups = get_empty_groups(full_groups)
-    report.results.append(empty_groups)
-    empty_cruftiness = calculate_cruft(empty_groups.results,
-                                       all_mobile_device_groups)
-    report.metadata["Cruftiness"][
-        "Empty Mobile Device Group Cruftiness"] = (
-            get_cruft_strings(empty_cruftiness))
+        "All groups which do not participate in scoping. Mobile device groups "
+        "are considered to be in-use if they are designated in the scope or "
+        "the exclusions of a configuration profile, provisioning profile, "
+        "app, or ebook. This report includes all groups which are nested "
+        "inside of smart groups using the 'member_of' criterion.")
 
     return report
 
@@ -965,6 +974,9 @@ def build_policies_report(**kwargs):
     jss_connection = JSSConnection.get()
     all_policies = jss_connection.Policy().retrieve_all(
         subset=["general", "scope"])
+    if not all_policies:
+        return Report("Policy", [], "Policy Usage Report", {})
+
     all_policies_result = Result([(policy.id, policy.name) for policy in
                                   all_policies], False, "All Policies")
     unscoped_policies = [(policy.id, policy.name) for policy in all_policies if
@@ -1011,6 +1023,10 @@ def build_config_profiles_report(**kwargs):
     jss_connection = JSSConnection.get()
     all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
         subset=["general", "scope"])
+    if not all_configs:
+        return Report("Computer Configuration Profile", [],
+                      "Computer Configuration Profile Report", {})
+
     all_configs_result = Result([(config.id, config.name) for config in
                                  all_configs], False, "All OSX Configuration "
                                 "Profiles")
@@ -1055,6 +1071,9 @@ def build_md_config_profiles_report(**kwargs):
     all_configs = (
         jss_connection.MobileDeviceConfigurationProfile().retrieve_all(
             subset=["general", "scope"]))
+    if not all_configs:
+        return Report("Mobile Device Configuration Profile", [],
+                      "Mobile Device Configuration Profile Report", {})
     all_configs_result = Result([(config.id, config.name) for config in
                                  all_configs], False, "All iOS Configuration "
                                 "Profiles")
@@ -1100,6 +1119,9 @@ def build_apps_report(**kwargs):
     all_apps = (
         jss_connection.MobileDeviceApplication().retrieve_all(
             subset=["general", "scope"]))
+    if not all_apps:
+        return Report("Mobile Application", [],
+                      "Mobile Device Application Report", {})
 
     all_apps_result = Result([(app.id, app.name) for app in all_apps], False,
                              "All Mobile Device Applications")
@@ -1740,7 +1762,7 @@ def run_reports(args):
         try:
             tree.write(os.path.expanduser(args.ofile), encoding="UTF-8",
                     xml_declaration=True)
-            print "Wrote output to %s" % args.ofile
+            print "%s  Wrote output to %s" % (SPRUCE, args.ofile)
         except OSError:
             print "Error writing output to %s" % args.ofile
             sys.exit(1)
