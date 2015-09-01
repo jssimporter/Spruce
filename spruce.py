@@ -1349,31 +1349,34 @@ def print_output(report, verbose=False):
     indent_size = 3 * " "
     forest_length = (64 - len(report.heading)) / 2
     print "%s  %s %s " % (SPRUCE, report.heading, SPRUCE * forest_length)
-    for result in report.results:
-        if not result.include_in_non_verbose and not verbose:
-            continue
-        else:
-            print "\n%s  %s (%i)" % (
-                SPRUCE, result.heading, len(result.results))
-            if result.description:
-                print textwrap.fill(result.description,
-                                    initial_indent=indent_size,
-                                    subsequent_indent=indent_size)
-            print
-            for line in sorted(result.results,
-                               key=lambda s: s[1].upper().strip()):
-                if line[1].strip() == "":
-                    text = "(***NO NAME: ID is %s***)" % line[0]
-                else:
-                    text = line[1]
-                print "\t%s" % text
+    if not report.results:
+        print "%s  No Results %s" % (SPRUCE, SPRUCE)
+    else:
+        for result in report.results:
+            if not result.include_in_non_verbose and not verbose:
+                continue
+            else:
+                print "\n%s  %s (%i)" % (
+                    SPRUCE, result.heading, len(result.results))
+                if result.description:
+                    print textwrap.fill(result.description,
+                                        initial_indent=indent_size,
+                                        subsequent_indent=indent_size)
+                print
+                for line in sorted(result.results,
+                                key=lambda s: s[1].upper().strip()):
+                    if line[1].strip() == "":
+                        text = "(***NO NAME: ID is %s***)" % line[0]
+                    else:
+                        text = line[1]
+                    print "\t%s" % text
 
-    for heading, subsection in report.metadata.iteritems():
-        print "\n%s  %s %s" % (SPRUCE, heading, SPRUCE)
-        for subheading, strings in subsection.iteritems():
-            print "%s  %s" % (SPRUCE, subheading)
-            for line in strings:
-                print "\t%s" % line
+        for heading, subsection in report.metadata.iteritems():
+            print "\n%s  %s %s" % (SPRUCE, heading, SPRUCE)
+            for subheading, strings in subsection.iteritems():
+                print "%s  %s" % (SPRUCE, subheading)
+                for line in strings:
+                    print "\t%s" % line
 
 
 def get_cruftmoji(percentage):
