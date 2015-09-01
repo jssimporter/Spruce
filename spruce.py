@@ -1723,10 +1723,11 @@ def build_argparser():
 
     # Removal Args
     removal_group = parser.add_argument_group("Removal Arguments")
-    phelp = ("Remove objects specified in supplied plist REMOVE. If "
-             "this option is used, all reporting is skipped. The input "
-             "file is most easily created by editing the results of a "
-             "report with the -o/--ofile option.")
+    phelp = ("Remove all objects specified in supplied XML file REMOVE from "
+             "the subelement 'Removals'. If this option is used, all "
+             "reporting is skipped. The input file is most easily created by "
+             "editing the results of a report done with the -o/--ofile "
+             "option.")
     removal_group.add_argument("--remove", help=phelp)
 
     return parser
@@ -1822,7 +1823,6 @@ def run_reports(args):
     if args.ofile:
         indent(output_xml)
         tree = ET.ElementTree(output_xml)
-        # TODO: Debug (Or leave in?)
         print ET.tostring(output_xml, encoding="UTF-8")
         tree.write(os.path.expanduser(args.ofile), encoding="UTF-8",
                    xml_declaration=True)
