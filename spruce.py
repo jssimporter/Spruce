@@ -137,7 +137,7 @@ DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
                "pass this filename as an option to the --remove "
                "argument to\nremove the specified objects.")
 SPRUCE = "\xF0\x9F\x8C\xB2"
-__version__ = "1.1.0"
+__version__ = "2.0.0"
 
 
 class Error(Exception):
