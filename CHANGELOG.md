@@ -42,5 +42,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.1.0] - 2015-02-05 Norwegian Spruce (Picea abies)
 Initial Release.
 
-[unreleased]: https://github.com/sheagcraig/yo/compare/1.0.1...HEAD
+[unreleased]: https://github.com/sheagcraig/yo/compare/2.0.0...HEAD
+[2.0.0]: https://github.com/sheagcraig/auto_logout/compare/1.0.1...2.0.0
 [1.0.1]: https://github.com/sheagcraig/auto_logout/compare/0.1.0...1.0.1
