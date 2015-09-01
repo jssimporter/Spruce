@@ -499,6 +499,10 @@ def build_device_report(check_in_period, devices):
     report.metadata["Version Spread"], report.metadata[
         "Hardware Model Spread"] = get_version_and_model_spread(devices)
 
+    # All Devices
+    all_devices = [(device.id, device.name) for device in devices]
+    report.results.append(Result(all_devices, False, "All %ss" % device_name))
+
     return report
 
 
@@ -1049,6 +1053,8 @@ def build_policies_report(**kwargs):
     jss_connection = JSSConnection.get()
     all_policies = jss_connection.Policy().retrieve_all(
         subset=["general", "scope"])
+    all_policies_result = Result([(policy.id, policy.name) for policy in
+                                  all_policies], False, "All Policies")
     unscoped_policies = [(policy.id, policy.name) for policy in all_policies if
                          policy.findtext("scope/all_computers") == "false" and
                          not policy.findall("scope/computers/computer") and
@@ -1068,8 +1074,8 @@ def build_policies_report(**kwargs):
                       "(Policy/General/Enabled toggle).")
     disabled_cruftiness = calculate_cruft(disabled_policies, all_policies)
 
-    report = Report("Policy", [unscoped, disabled], "Policy Report",
-                    {"Cruftiness": {}})
+    report = Report("Policy", [unscoped, disabled, all_policies_result],
+                    "Policy Report", {"Cruftiness": {}})
 
     report.metadata["Cruftiness"]["Unscoped Policy Cruftiness"] = (
         get_cruft_strings(unscoped_cruftiness))
@@ -1093,6 +1099,10 @@ def build_config_profiles_report(**kwargs):
     jss_connection = JSSConnection.get()
     all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
         subset=["general", "scope"])
+    all_configs_result = Result([(config.id, config.name) for config in
+                                 all_configs], False, "All OSX Configuration "
+                                 "Profiles")
+
     unscoped_configs = [(config.id, config.name) for config in all_configs if
                         config.findtext("scope/all_computers") == "false" and
                         not config.findall("scope/computers/computer") and
@@ -1108,7 +1118,8 @@ def build_config_profiles_report(**kwargs):
     unscoped_cruftiness = calculate_cruft(unscoped_configs, all_configs)
 
 
-    report = Report("Computer Configuration Profile", [unscoped],
+    report = Report("Computer Configuration Profile",
+                    [unscoped, all_configs_result],
                     "Computer Configuration Profile Report",
                     {"Cruftiness": {}})
     report.metadata["Cruftiness"]["Unscoped Profile Cruftiness"] = (
@@ -1132,6 +1143,9 @@ def build_md_config_profiles_report(**kwargs):
     all_configs = (
         jss_connection.MobileDeviceConfigurationProfile().retrieve_all(
             subset=["general", "scope"]))
+    all_configs_result = Result([(config.id, config.name) for config in
+                                 all_configs], False, "All iOS Configuration "
+                                 "Profiles")
     unscoped_configs = [(config.id, config.name) for config in all_configs if
                         config.findtext("scope/all_mobile_devices") ==
                         "false" and not
@@ -1151,7 +1165,8 @@ def build_md_config_profiles_report(**kwargs):
     unscoped_cruftiness = calculate_cruft(unscoped_configs, all_configs)
 
 
-    report = Report("Mobile Device Configuration Profile", [unscoped],
+    report = Report("Mobile Device Configuration Profile",
+                    [unscoped, all_configs_result],
                     "Mobile Device Configuration Profile Report",
                     {"Cruftiness": {}})
     report.metadata["Cruftiness"]["Unscoped Profile Cruftiness"] = (
@@ -1174,6 +1189,8 @@ def build_apps_report(**kwargs):
         jss_connection.MobileDeviceApplication().retrieve_all(
             subset=["general", "scope"]))
 
+    all_apps_result = Result([(app.id, app.name) for app in all_apps], False,
+                             "All Mobile Device Applications")
     # Find apps not scoped anywhere.
     unscoped_apps = [(app.id, app.name) for app in all_apps if
                      app.findtext("scope/all_mobile_devices") == "false" and
@@ -1194,7 +1211,7 @@ def build_apps_report(**kwargs):
                       "Mobile Device Applications not Scoped", desc)
     unscoped_cruftiness = calculate_cruft(unscoped_apps, all_apps)
 
-    report = Report("Mobile Application", [unscoped],
+    report = Report("Mobile Application", [unscoped, all_apps_result],
                     "Mobile Device Application Report", {"Cruftiness": {}})
     report.metadata["Cruftiness"]["Unscoped App Cruftiness"] = (
         get_cruft_strings(unscoped_cruftiness))
