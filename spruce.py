@@ -14,71 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""spruce.py
-usage: spruce.py [-h] [-v] [--check_in_period CHECK_IN_PERIOD] [-o OFILE] [-a]
-                 [-c] [-g] [-p] [-s] [-t] [-u] [-d] [-r] [-m]
-                 [--remove REMOVE]
-
-Spruce is a tool to help you clean up your filthy JSS.
-
-Using the various reporting options, you can see unused packages, scripts,
-computer groups, configuration profiles, mobile device groups, and mobile
-device configuration profiles.
-
-Reports are by default output to stdout, and may optionally be output as
-a plist for later use in automated removal.
-
-Spruce uses configured AutoPkg/JSSImporter settings first. If those are
-missing, Spruce falls back to python-jss settings.
-
-The recommended workflow is to begin by running the reports you find
-interesting. After becoming familiar with the scale of unused things,
-reports can be output with the -o/--ofile option. This file can then be
-edited down to include only those things which you wish to remove.
-Finally, pass this filename as an option to the --remove argument to
-remove the specified objects.
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -v, --verbose         Include a list of all objects and used objects in
-                        addition to unused objects in reports.
-  --check_in_period CHECK_IN_PERIOD
-                        For computer and mobile device reports, the number of
-                        days since the last check-in to consider device out-
-                        of-date.
-
-General Reporting Arguments:
-  -o OFILE, --ofile OFILE
-                        Output results to OFILE, in plist format (also usable
-                        as input to the --remove option).
-  -a, --all             Generate all reports. With no other arguments, this is
-                        the default.
-
-Computer Reporting Arguments:
-  -c, --computers       Generate computer report.
-  -g, --computer_groups
-                        Generate unused computer-groups report (Static and
-                        Smart).
-  -p, --packages        Generate unused package report.
-  -s, --scripts         Generate unused script report.
-  -t, --policies        Generate unused policy report.
-  -u, --computer_configuration_profiles
-                        Generate unused computer configuration profile report.
-
-Mobile Device Reporting Arguments:
-  -d, --mobile_devices  Generate mobile device report.
-  -r, --mobile_device_groups
-                        Generate unused mobile-device-groups report (Static
-                        and Smart).
-  -m, --mobile_device_configuration_profiles
-                        Generate unused mobile-device-profiles report.
-
-Removal Arguments:
-  --remove REMOVE       Remove objects specified in supplied plist REMOVE. If
-                        this option is used, all reporting is skipped. The
-                        input file is most easily created by editing the
-                        results of a report with the -o/--ofile option.
-"""
+"""Spruce is a tool to help you clean up your filthy JSS."""
 
 
 import argparse
@@ -87,7 +23,6 @@ import datetime
 from distutils.version import StrictVersion
 from HTMLParser import HTMLParser
 import os
-import pdb
 import re
 import subprocess
 import sys
@@ -124,7 +59,7 @@ DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
                "configuration profiles, mobile device groups, and "
                "mobile\ndevice configuration profiles.\n\n"
                "Reports are by default output to stdout, and may "
-               "optionally be output as\na plist for later use in "
+               "optionally be output as\nXML for later use in "
                "automated removal.\n\n"
                "Spruce uses configured AutoPkg/JSSImporter settings "
                "first. If those are\nmissing, Spruce falls back to "
@@ -435,7 +370,6 @@ def build_container_report(containers_with_search_paths, jss_objects):
         for used_object_set in used_object_sets:
             used = used.union(used_object_set)
     unused = set(jss_objects).difference(used)
-    #pdb.set_trace()
 
     # Use the xpath's second to last part to determine object type.
     obj_type = containers_with_search_paths[0][1].split(
@@ -679,7 +613,6 @@ def model_identifier_cmp(model_string_one, model_string_two):
         model_two= VersionIdentifier(0, 0, 0)
 
     if model_one.model == model_two.model:
-        #pdb.set_trace()
         if model_one.major == model_two.major:
             result = cmp(int(model_one.minor), int(model_two.minor))
         else:
