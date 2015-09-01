@@ -293,7 +293,7 @@ class AppStoreVersionParser(HTMLParser):
         # <span itemprop="softwareVersion">3.0.3
         attrs_dict = dict(attrs)
         if (tag == "span" and "itemprop" in attrs_dict and
-            attrs_dict["itemprop"] == "softwareVersion"):
+                attrs_dict["itemprop"] == "softwareVersion"):
             self.in_version_span = True
 
     def handle_data(self, data):
@@ -314,27 +314,6 @@ def map_jssimporter_prefs(prefs):
     connection["repo_prefs"] = prefs.get("JSS_REPOS")
 
     return connection
-
-
-def remove(j, items):
-    """Remove packages and scripts from a JSS.
-
-    Args:
-        items: Iterable of string object names to remove. May be a
-            package or a script.
-    """
-    pass
-    #for item in items:
-    #    # Remove the JSS Object for item:
-    #    if os.path.splitext(item)[1].upper() in [".PKG", ".DMG"]:
-    #        j.Package(item).delete()
-    #    else:
-    #        # Must be a script.
-    #        j.Script(item).delete()
-
-    #    # Delete the actual file:
-    #    j.distribution_points.delete(item)
-    #    print "Deleted: %s" % item
 
 
 def build_container_report(containers_with_search_paths, jss_objects):
@@ -473,8 +452,9 @@ def get_out_of_date_devices(check_in_period, devices):
             out_of_date_devices.append((device.id, device.name))
 
     description = ("This report collects %ss which have not checked in for "
-        "more than %i days (%s) based on their %s property." % (
-            device_name, check_in_period, out_of_date, check_in.split("/")[1]))
+                   "more than %i days (%s) based on their %s property." % (
+                       device_name, check_in_period, out_of_date,
+                       check_in.split("/")[1]))
     out_of_date_report = Result(
         out_of_date_devices, True, "Out of Date %ss" % device_name,
         description)
@@ -610,7 +590,7 @@ def model_identifier_cmp(model_string_one, model_string_two):
     if search_two:
         model_two = VersionIdentifier(*search_two.groups())
     else:
-        model_two= VersionIdentifier(0, 0, 0)
+        model_two = VersionIdentifier(0, 0, 0)
 
     if model_one.model == model_two.model:
         if model_one.major == model_two.major:
@@ -1034,7 +1014,7 @@ def build_config_profiles_report(**kwargs):
         subset=["general", "scope"])
     all_configs_result = Result([(config.id, config.name) for config in
                                  all_configs], False, "All OSX Configuration "
-                                 "Profiles")
+                                "Profiles")
 
     unscoped_configs = [(config.id, config.name) for config in all_configs if
                         config.findtext("scope/all_computers") == "false" and
@@ -1078,7 +1058,7 @@ def build_md_config_profiles_report(**kwargs):
             subset=["general", "scope"]))
     all_configs_result = Result([(config.id, config.name) for config in
                                  all_configs], False, "All iOS Configuration "
-                                 "Profiles")
+                                "Profiles")
     unscoped_configs = [(config.id, config.name) for config in all_configs if
                         config.findtext("scope/all_mobile_devices") ==
                         "false" and not
@@ -1345,7 +1325,7 @@ def print_output(report, verbose=False):
             results.
     """
     # Indent is a space and a spruce emoji wide (so 3).
-    indent = 3 * " "
+    indent_size = 3 * " "
     forest_length = (64 - len(report.heading)) / 2
     print "%s  %s %s " % (SPRUCE, report.heading, SPRUCE * forest_length)
     for result in report.results:
@@ -1355,8 +1335,9 @@ def print_output(report, verbose=False):
             print "\n%s  %s (%i)" % (
                 SPRUCE, result.heading, len(result.results))
             if result.description:
-                print textwrap.fill(result.description, initial_indent=indent,
-                                    subsequent_indent=indent)
+                print textwrap.fill(result.description,
+                                    initial_indent=indent_size,
+                                    subsequent_indent=indent_size)
             print
             for line in sorted(result.results,
                                key=lambda s: s[1].upper().strip()):
@@ -1803,7 +1784,7 @@ def remove(removal_tree):
     # AFP/SMB DP's on the other hand do, so first test to see if any
     # File Share Distribution Points exist.
     if (hasattr(jss_connection.distribution_points, "dp_info") and
-        jss_connection.distribution_points.dp_info):
+            jss_connection.distribution_points.dp_info):
 
         # See if we are trying to delete any packages or scripts.
         # JSS's which have been migratedd store their scripts in the
@@ -1832,10 +1813,10 @@ def remove(removal_tree):
                 obj = search_func(item.attrib["id"])
             except jss.JSSGetError as error:
                 # Object probably no longer exists.
-                print ("%s object %s with ID %s is not available or does "
-                    "not exist.\nStatus Code:%s Error: %s" % (
-                        item.tag, item.text, item.attrib["id"],
-                        error.status_code, error.message))
+                print ("%s object %s with ID %s is not available or does not "
+                       "exist.\nStatus Code:%s Error: %s" % (
+                           item.tag, item.text, item.attrib["id"],
+                           error.status_code, error.message))
                 continue
 
         # Try to delete the item.
