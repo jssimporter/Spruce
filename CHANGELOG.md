@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased][unreleased]
+### Fixed
+- Now handles JSSGetError when trying to do a JDS delete during removal (#6).
 
 ## [2.0.0] - 2015-09-01 Green Dragon Spruce (Picea retroflexa)
 ### CHANGED

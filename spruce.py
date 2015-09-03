@@ -72,7 +72,7 @@ DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
                "pass this filename as an option to the --remove "
                "argument to\nremove the specified objects.")
 SPRUCE = "\xF0\x9F\x8C\xB2"
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 
 
 class Error(Exception):
@@ -1877,6 +1877,10 @@ def remove(removal_tree):
             except OSError as error:
                 print ("Unable to delete %s: %s with error: %s" %
                        (item.tag, item.text, error.message))
+            except jss.JSSGetError:
+                # Tried to delete the db object again because user has a
+                # JDS or CDP. Just silently continue.
+                pass
 
 
 def check_with_user():
