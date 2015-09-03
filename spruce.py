@@ -1871,15 +1871,29 @@ def remove(removal_tree):
         # If the item is a Package, or a Script on a non-migrated
         # JSS, delete the file from the distribution points.
         if item.tag in needs_file_removal and file_type_removals:
+            # The name property of a script or package is called
+            # "Display Name" in the gui, and it can differ from the
+            # actual filename, so get the filename rather than use name.
+            # However, if there is a DistributionServer type repo
+            # configured, it tries to delete the db object, which needs
+            # "name". Since this has already been done, it's going to
+            # throw a JSSGetError regardless. In the event that a user has
+            # a Display Name that matches another package's filename, bad
+            # things could happen!
+            # Get filename, but fall back to name.
+            filename = obj.findtext("filename", item.text)
             try:
-                jss_connection.distribution_points.delete(item.text)
+                jss_connection.distribution_points.delete(filename)
                 print "%s file %s deleted." % (item.tag, obj.name)
             except OSError as error:
                 print ("Unable to delete %s: %s with error: %s" %
-                       (item.tag, item.text, error.message))
+                       (item.tag, filename, error.message))
             except jss.JSSGetError:
-                # Tried to delete the db object again because user has a
-                # JDS or CDP. Just silently continue.
+                # User has a DistributionServer of some kind and
+                # A.) The db object has already been deleted above
+                # and possibly also B.) The "Display Name" and
+                # "Filename" do not match, and the GET is failing due
+                # to no db objects named "Filename" existing.
                 pass
 
 
