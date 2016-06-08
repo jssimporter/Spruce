@@ -1851,10 +1851,16 @@ def remove(removal_tree):
                 obj = search_func(item.attrib["id"])
             except jss.JSSGetError as error:
                 # Object probably no longer exists.
-                print ("%s object %s with ID %s is not available or does not "
-                       "exist.\nStatus Code:%s Error: %s" % (
-                           item.tag, item.text, item.attrib["id"],
-                           error.status_code, error.message))
+                if hasattr(error, "status_code"):
+                    print ("%s object %s with ID %s is not available or does "
+                           "not exist.\nStatus Code: %s\nError: %s" % (
+                               item.tag, item.text, item.attrib["id"],
+                               error.status_code, error.message))
+                else:
+                    print ("%s object %s with ID %s is not available or does "
+                           "not exist.\nError: %s" % (
+                               item.tag, item.text, item.attrib["id"],
+                               error.message))
                 continue
 
         # Try to delete the item.
