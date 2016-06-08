@@ -1870,7 +1870,7 @@ def remove(removal_tree):
 
         # If the item is a Package, or a Script on a non-migrated
         # JSS, delete the file from the distribution points.
-        if item.tag in needs_file_removal and file_type_removals:
+        if file_type_removals and item.tag in needs_file_removal:
             # The name property of a script or package is called
             # "Display Name" in the gui, and it can differ from the
             # actual filename, so get the filename rather than use name.
