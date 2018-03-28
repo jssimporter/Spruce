@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (C) 2015 Shea G Craig
+# Copyright (C) 2015-2018 Shea G Craig
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -55,7 +55,7 @@ PYTHON_JSS_PREFERENCES = (
     "~/Library/Preferences/com.github.sheagcraig.python-jss.plist")
 DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
                "\n\nUsing the various reporting options, you can see "
-               "unused packages, scripts,\ncomputer groups, "
+               "unused packages, printers, scripts,\ncomputer groups, "
                "configuration profiles, mobile device groups, and "
                "mobile\ndevice configuration profiles.\n\n"
                "Reports are by default output to stdout, and may "
@@ -752,6 +752,45 @@ def build_packages_report(**kwargs):
     return report
 
 
+def build_printers_report(**kwargs):
+    """Report on printer usage.
+
+    Looks for printers which are not installed by any policies or
+    computer configurations.
+
+    Returns:
+        A Report object.
+    """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
+    jss_connection = JSSConnection.get()
+    # We have to support the functioning subset and the (hopefully) fixed
+    # future subset name.
+    all_policies = jss_connection.Policy().retrieve_all(
+        subset=["general", "printers"])
+    all_configs = jss_connection.ComputerConfiguration().retrieve_all()
+    all_printers = [(printer.id, printer.name) for printer in jss_connection.Printer()]
+    if not all_printers:
+        report = Report("Printer", [], "Printer Usage Report", {})
+    else:
+        policy_xpath = "printers/printer"
+        config_xpath = "printers/printer"
+        report = build_container_report(
+            [(all_policies, policy_xpath), (all_configs, config_xpath)],
+            all_printers)
+        report.get_result_by_name("Used").description = (
+            "All printers which are installed by policies or imaging "
+            "configurations.")
+        report.get_result_by_name("Unused").description = (
+            "All printers which are not installed by any policies or imaging "
+            "configurations.")
+
+        report.heading = "Printer Usage Report"
+
+    return report
+
+
 def build_scripts_report(**kwargs):
     """Report on script usage.
 
@@ -1157,15 +1196,16 @@ def build_apps_report(**kwargs):
     session = requests.session()
     for app in all_apps:
         external_url = app.findtext("general/external_url")
-        page = session.get(external_url).text
-        version_parser = AppStoreVersionParser()
-        version_parser.feed(page)
-        current_version = version_parser.version
-        if app.findtext("general/version") != current_version:
-            out_of_date[app.name] = (app.findtext("general/version"),
-                                     current_version)
-        if current_version == "Version Not Found":
-            discontinued.append((app.id, app.name))
+        if external_url:
+            page = session.get(external_url).text
+            version_parser = AppStoreVersionParser()
+            version_parser.feed(page)
+            current_version = version_parser.version
+            if app.findtext("general/version") != current_version:
+                out_of_date[app.name] = (app.findtext("general/version"),
+                                         current_version)
+            if current_version == "Version Not Found":
+                discontinued.append((app.id, app.name))
 
     report.metadata["Out-of-Date Apps"] = {}
     report.metadata["Out-of-Date Apps"]["Out-of-Date Apps"] = (
@@ -1636,6 +1676,8 @@ def build_argparser():
                        action="store_true")
     phelp = "Generate unused package report."
     group.add_argument("-p", "--packages", help=phelp, action="store_true")
+    phelp = "Generate unused printer report."
+    group.add_argument("--printers", help=phelp, action="store_true")
     phelp = "Generate unused script report."
     group.add_argument("-s", "--scripts", help=phelp, action="store_true")
     phelp = "Generate unused policy report."
@@ -1697,6 +1739,9 @@ def run_reports(args):
                                   "report": None}
     reports["packages"] = {"heading": "Package Report",
                            "func": build_packages_report,
+                           "report": None}
+    reports["printers"] = {"heading": "Printers Report",
+                           "func": build_printers_report,
                            "report": None}
     reports["scripts"] = {"heading": "Scripts Report",
                           "func": build_scripts_report,
@@ -1797,6 +1842,7 @@ def remove(removal_tree):
     tag_map = {"Computer": jss_connection.Computer,
                "ComputerGroup": jss_connection.ComputerGroup,
                "Package": jss_connection.Package,
+               "Printer": jss_connection.Printer,
                "Script": jss_connection.Script,
                "Policy": jss_connection.Policy,
                "ComputerConfigurationProfile":
