@@ -40,15 +40,16 @@ The `Removals` tag should contain one child element for each object to be delete
 
 Each object to be removed's element should have a tag name corresponding to their type, with capitalization exactly as below:
 - `Computer`
-- `ComputerGroup`
-- `Package`
-- `Script`
-- `Policy`
 - `ComputerConfigurationProfile`
-- `MobileDevice`
-- `MobileDeviceGroup`
-- `MobileDeviceConfigurationProfile`
+- `ComputerGroup`
 - `MobileApplication`
+- `MobileDevice`
+- `MobileDeviceConfigurationProfile`
+- `MobileDeviceGroup`
+- `Package`
+- `Policy`
+- `Printer`
+- `Script`
 
 The element has a required attributed of `id` that corresponds to the object's JSS ID property. Finally, the element may have text of whatever you like; the XML output of Spruce's reports puts the object's name here.
 
