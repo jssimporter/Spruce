@@ -877,10 +877,20 @@ def build_group_report(container_searches, groups_names, full_groups):
     # Build Empty Groups Report.
     empty_groups = get_empty_groups(full_groups)
     report.results.append(empty_groups)
+
     # Calculate empty cruftiness.
     empty_cruftiness = calculate_cruft(empty_groups, groups_names)
     report.metadata["Cruftiness"]["Empty Group Cruftiness"] = (
         get_cruft_strings(empty_cruftiness))
+
+    # Build No Criteria Groups Report.
+    no_criteria_groups = get_no_criteria_groups(full_groups)
+    report.results.append(no_criteria_groups)
+
+    # Calculate empty cruftiness.
+    no_criteria_cruftiness = calculate_cruft(no_criteria_groups, groups_names)
+    report.metadata["Cruftiness"]["No Criteria Group Cruftiness"] = (
+        get_cruft_strings(no_criteria_cruftiness))
 
     return report
 
@@ -1327,6 +1337,30 @@ def get_empty_groups(full_groups):
                   "%s groups which have no members." % obj_type[1])
 
 
+def get_no_criteria_groups(full_groups):
+    """Return a Result with all smart groups that have no criteria.
+
+    Args:
+        full_groups: list of all groups from jss; i.e.
+            jss_connection.ComputerGroup().retrieve_all()
+
+    Returns:
+        Result object.
+    """
+    if isinstance(full_groups[0], jss.ComputerGroup):
+        obj_type = ("computers", "Computer")
+    elif isinstance(full_groups[0], jss.MobileDeviceGroup):
+        obj_type = ("mobile_devices", "Mobile Device")
+    else:
+        raise TypeError("Incorrect group type.")
+    groups_with_no_criteria = {(group.id, group.name) for group in full_groups
+                               if group.findtext("is_smart") == "true" and
+                               int(group.findtext('criteria/size')) == 0}
+    return Result(groups_with_no_criteria, True,
+                  "No Criteria %s Groups" % obj_type[1],
+                  "%s groups which have no criteria." % obj_type[1])
+
+
 def has_no_group_membership(device):
     """Test whether a computer or mobile device belongs to any groups.
 
@@ -1420,7 +1454,7 @@ def print_output(report, verbose=False):
 
 
 def get_cruftmoji(percentage):
-    """Return one of 10 possible emojis depending on how crufty.
+    """Return one of 11 possible emojis depending on how crufty.
 
     Args:
         percentage: A float between 0 and 1.
@@ -1430,7 +1464,7 @@ def get_cruftmoji(percentage):
     """
     level = [
         # Master
-        ("\xf0\x9f\x99\x8f \xf0\x9f\x8d\xbb \xf0\x9f\x8d\x95 \xf0\x9f\x91\xbe"
+        ("\xf0\x9f\x99\x8f \xf0\x9f\x8d\xbb \xf0\x9f\x8d\x95 \xf0\x9f\x91\xbe "
          "\xf0\x9f\x8d\x95 \xf0\x9f\x8d\xbb \xf0\x9f\x99\x8f"),
         # Snakes on a Plane
         "\xf0\x9f\x90\x8d \xf0\x9f\x90\x8d \xe2\x9c\x88\xef\xb8\x8f",
