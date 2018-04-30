@@ -909,6 +909,13 @@ def build_computer_groups_report(**kwargs):
         subset=["general", "scope"])
     all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
         subset=["general", "scope"])
+
+    # Account for fix in python-jss that isn't yet part of a release.
+    if hasattr(jss_connection, 'RestrictedSoftware'):
+        all_restricted_software = jss_connection.RestrictedSoftware().retrieve_all()
+    else:
+        all_restricted_software = jss_connection.RestrictedSfotware().retrieve_all()
+
     scope_xpath = "scope/computer_groups/computer_group"
     scope_exclusions_xpath = (
         "scope/exclusions/computer_groups/computer_group")
@@ -918,7 +925,9 @@ def build_computer_groups_report(**kwargs):
         [(all_policies, scope_xpath),
          (all_policies, scope_exclusions_xpath),
          (all_configs, scope_xpath),
-         (all_configs, scope_exclusions_xpath)],
+         (all_configs, scope_exclusions_xpath),
+         (all_restricted_software, scope_xpath),
+         (all_restricted_software, scope_exclusions_xpath)],
         all_computer_groups, full_groups)
 
     report.heading = "Computer Group Usage Report"
