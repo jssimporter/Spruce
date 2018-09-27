@@ -1657,7 +1657,8 @@ def build_argparser():
              "days since the last check-in to consider device "
              "out-of-date.")
     parser.add_argument("--check_in_period", help=phelp)
-
+    phelp = ("Path to preference file. ")
+    parser.add_argument("--prefs", help=phelp)
     # General Reporting Args
     general_group = parser.add_argument_group("General Reporting Arguments")
     phelp = ("Output results to OFILE, in plist format (also usable as "
@@ -1973,9 +1974,15 @@ def main():
     parser = build_argparser()
     args = parser.parse_args()
 
-    # Get AutoPkg configuration settings for JSSImporter, and barring
-    # that, get python-jss settings.
-    if os.path.exists(os.path.expanduser(AUTOPKG_PREFERENCES)):
+    # Allow override to prefs file
+    if args.prefs:
+        if os.path.exists(os.path.expanduser(args.prefs)):
+            user_supplied_prefs = Plist(args.prefs)
+            connection = map_jssimporter_prefs(user_supplied_prefs)
+            print "Preferences used: %s" % args.prefs
+    # Otherwise, get AutoPkg configuration settings for JSSImporter,
+    # and barring that, get python-jss settings.
+    elif os.path.exists(os.path.expanduser(AUTOPKG_PREFERENCES)):
         autopkg_env = Plist(AUTOPKG_PREFERENCES)
         connection = map_jssimporter_prefs(autopkg_env)
     else:
