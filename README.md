@@ -30,7 +30,7 @@ You need a couple of things to get this working:
   preferences file,
   - A [python-jss](https://github.com/sheagcraig/python-jss)
   preferences file.
-  - Alternatively, use the `--prefs` option to supply a path to a different preferences file. This must contain the `JSS_URL`, `API_USER` and `API_PASSWORD` keys in the same format as an AutoPkg preferences file.
+  - Alternatively, use the `--prefs` option to supply a path to a different preferences file. This must contain the `JSS_URL`, `API_USERNAME` and `API_PASSWORD` keys in the same format as an AutoPkg preferences file.
 
 Spruce will use file specified in a `--prefs` option first. If none exists, it will try to use the AutoPkg preferences. If they don't exist, it will try to use the `python-jss` preferences. 
 
