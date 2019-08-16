@@ -24,11 +24,15 @@ Obviously this is a powerful and dangerous tool. You've been warned!
 ## Setup and Situation
 You need a couple of things to get this working:
 - [python-jss](https://github.com/sheagcraig/python-jss)
-- Either a functioning
+- One of the following:
+  - A functioning
   [AutoPkg](https://github.com/autopkg/autopkg)/[JSSImporter](https://github.com/sheagcraig/JSSImporter)
-  preferences file, or a [python-jss](https://github.com/sheagcraig/python-jss)
+  preferences file,
+  - A [python-jss](https://github.com/sheagcraig/python-jss)
   preferences file.
-	- Spruce will try to use the Autopkg preferences first!
+  - Alternatively, use the `--prefs` option to supply a path to a different preferences file. This must contain the `JSS_URL`, `API_USERNAME` and `API_PASSWORD` keys in the same format as an AutoPkg preferences file.
+
+Spruce will use file specified in a `--prefs` option first. If none exists, it will try to use the AutoPkg preferences. If they don't exist, it will try to use the `python-jss` preferences. 
 
 ## XML Input File Format for `--remove`
 To remove objects from your JSS, you'll need to create a removal file. This file is a simple XML file which has a list of objects to remove and their ID's. Spruce uses the ID instead of name because some object types (like Computers) allow multiple objects to have the same name.
@@ -36,7 +40,7 @@ To remove objects from your JSS, you'll need to create a removal file. This file
 Don't craft this file completely from scratch! Use Spruce's `-o/--ofile` argument to output your reports to an XML file, and then cut and paste from the various reports into the `Removals` section. For example, `spruce.py --packages --ofile packages_to_remove.xml`
 The file format for the ```--remove``` option is simple. For removal purposes, Spruce is expecting to see a element with a tag of `Removals` a child of the root tag. You may only have one `Removals` tag.
 
-The `Removals` tag should contain one child element for each object to be deleted. 
+The `Removals` tag should contain one child element for each object to be deleted.
 
 Each object to be removed's element should have a tag name corresponding to their type, with capitalization exactly as below:
 - `Computer`

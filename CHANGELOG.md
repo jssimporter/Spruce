@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased][unreleased]
+
+## [2.0.1] - 2016-06-22 White Spruce (Picea glauca)
 ### Fixed
 - Now handles JSSGetError when trying to do a JDS delete during removal (#6).
 
@@ -44,6 +46,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.1.0] - 2015-02-05 Norwegian Spruce (Picea abies)
 Initial Release.
 
-[unreleased]: https://github.com/sheagcraig/yo/compare/2.0.0...HEAD
-[2.0.0]: https://github.com/sheagcraig/auto_logout/compare/1.0.1...2.0.0
-[1.0.1]: https://github.com/sheagcraig/auto_logout/compare/0.1.0...1.0.1
+[unreleased]: https://github.com/sheagcraig/spruce/compare/2.0.1...HEAD
+[2.0.1]: https://github.com/sheagcraig/spruce/compare/2.0.0...2.0.1
+[2.0.0]: https://github.com/sheagcraig/spruce/compare/1.0.1...2.0.0
+[1.0.1]: https://github.com/sheagcraig/spruce/compare/0.1.0...1.0.1
