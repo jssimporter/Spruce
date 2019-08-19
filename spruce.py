@@ -1,4 +1,6 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 # Copyright (C) 2015-2018 Shea G Craig
 #
 # This program is free software: you can redistribute it and/or modify
@@ -36,16 +38,17 @@ from Foundation import (NSData,
                         NSPropertyListXMLFormat_v1_0)
 # pylint: enable=no-name-in-module
 
+sys.path.insert(0, '/Library/Application Support/JSSImporter')
+
 import jss
-# Ensure that python-jss dependency is at minimum version.
+# Ensure that python-jss dependency is at minimum version
 try:
     from jss import __version__ as PYTHON_JSS_VERSION
 except ImportError:
     PYTHON_JSS_VERSION = "0.0.0"
-# Requests is installed by python-jss.
-import requests
 
-REQUIRED_PYTHON_JSS_VERSION = StrictVersion("1.3.0")
+
+REQUIRED_PYTHON_JSS_VERSION = StrictVersion("2.0.0")
 
 
 # Globals
@@ -175,8 +178,8 @@ class JSSConnection(object):
         """Set up the jss connection class variable.
 
         If no connection argument is provided, setup will use the
-        standard JSSPrefs preferences
-        (com.github.sheagcraig.python-jss).
+        standard JSSImporter preferences
+        (com.github.autopkg).
 
         Args:
             connection: Dictionary with JSS connection info, keys:
@@ -315,6 +318,7 @@ def map_jssimporter_prefs(prefs):
     connection["suppress_warnings"] = prefs.get("JSS_SUPPRESS_WARNINGS", True)
     connection["jss_migrated"] = prefs.get("JSS_MIGRATED", True)
     connection["repo_prefs"] = prefs.get("JSS_REPOS")
+    print('JSS: {}'.format(connection["url"]))
 
     return connection
 
@@ -341,16 +345,21 @@ def build_container_report(containers_with_search_paths, jss_objects):
     """
     used_object_sets = []
     for containers, search in containers_with_search_paths:
-        used_object_sets.append(
-            {(int(obj.findtext("id")), obj.findtext("name"))
-             for container in containers
-             for obj in container.findall(search)
-             if obj.findtext("id") is not None})
+        search = "container.%s" % search.replace('/',".")
+        for container in containers:
+            try:
+                obj = eval(search)
+                if obj is not None:
+                    used_object_sets.append(
+                        {(obj.id.text, obj.name.text)})
+            except AttributeError:
+                pass
 
+    used = set()
     if used_object_sets:
         used = used_object_sets.pop()
-        for used_object_set in used_object_sets:
-            used = used.union(used_object_set)
+    for used_object_set in used_object_sets:
+        used = used.union(used_object_set)
     unused = set(jss_objects).difference(used)
 
     # Use the xpath's second to last part to determine object type.
@@ -498,9 +507,11 @@ def get_orphaned_devices(devices):
 
 def device_type(devices):
     """Return a string type name for a list of devices."""
+
     num_of_types = len({type(device) for device in devices})
     if num_of_types == 1:
-        return devices[0].list_type.replace("_", " ").title()
+        # print("TEST: device: %s" % type(devices[0]).__name__)
+        return type(devices[0]).__name__
     elif num_of_types == 0:
         return None
     else:
@@ -627,14 +638,13 @@ def build_computers_report(check_in_period, **kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
-    all_computers = jss_connection.Computer().retrieve_all(
-        subset=["general", "hardware", "groups_accounts"])
+    all_computers = jss_connection.Computer(["general", "hardware", "groups_accounts"]).retrieve_all()
 
     if all_computers:
         report = build_device_report(check_in_period, all_computers)
+        report.heading = "Computer Report"
     else:
         report = Report("Computer", [], "Computer Report", {})
-
     return report
 
 
@@ -660,11 +670,13 @@ def build_mobile_devices_report(check_in_period, **kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
-    mobile_devices = jss_connection.MobileDevice().retrieve_all(
-        subset=["general", "mobile_device_groups", "mobiledevicegroups"])
+    mobile_devices = jss_connection.MobileDevice(
+        ["general", "mobile_device_groups", "mobiledevicegroups"]
+        ).retrieve_all()
 
     if mobile_devices:
         report = build_device_report(check_in_period, mobile_devices)
+        report.heading = "Mobile Device Report"
     else:
         report = Report("MobileDevice", [], "Mobile Device Report", {})
 
@@ -726,10 +738,10 @@ def build_packages_report(**kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
-    # We have to support the functioning subset and the (hopefully) fixed
-    # future subset name.
-    all_policies = jss_connection.Policy().retrieve_all(
-        subset=["general", "package_configuration", "packages"])
+
+    all_policies = jss_connection.Policy(
+        ["general", "package_configuration", "packages"]
+        ).retrieve_all()
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
     all_packages = [(pkg.id, pkg.name) for pkg in jss_connection.Package()]
     if not all_packages:
@@ -765,10 +777,8 @@ def build_printers_report(**kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
-    # We have to support the functioning subset and the (hopefully) fixed
-    # future subset name.
-    all_policies = jss_connection.Policy().retrieve_all(
-        subset=["general", "printers"])
+
+    all_policies = jss_connection.Policy(["general", "printers"]).retrieve_all()
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
     all_printers = [(printer.id, printer.name) for printer in jss_connection.Printer()]
     if not all_printers:
@@ -804,8 +814,7 @@ def build_scripts_report(**kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
-    all_policies = jss_connection.Policy().retrieve_all(
-        subset=["general", "scripts"])
+    all_policies = jss_connection.Policy(["general", "scripts"]).retrieve_all()
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
     all_scripts = [(script.id, script.name) for script in
                    jss_connection.Script()]
@@ -844,11 +853,10 @@ def build_group_report(container_searches, groups_names, full_groups):
     Returns:
         A Report object.
     """
-    obj_type = device_type(full_groups)
     # Build results for groups which aren't scoped.
     report = build_container_report(container_searches, groups_names)
 
-    # More work to be done, since Smart Groups can nest other groups.
+    # Here we do more work, since Smart Groups can nest other groups.
     # We want to remove any groups nested (at any level) within a group
     # that is used.
 
@@ -857,7 +865,6 @@ def build_group_report(container_searches, groups_names, full_groups):
     used_groups = report.get_result_by_name("Used").results
     used_full_group_objects = get_full_groups_from_names(used_groups,
                                                          full_groups)
-
     full_used_nested_groups = get_nested_groups(used_full_group_objects,
                                                 full_groups)
     used_nested_groups = get_names_from_full_objects(full_used_nested_groups)
@@ -870,6 +877,7 @@ def build_group_report(container_searches, groups_names, full_groups):
 
     # Recalculate cruftiness
     unused_cruftiness = calculate_cruft(unused_groups, groups_names)
+    obj_type = device_type(full_groups)
     report.metadata["Cruftiness"][
         "Unscoped %s Cruftiness" % obj_type] = (
             get_cruft_strings(unused_cruftiness))
@@ -905,10 +913,8 @@ def build_computer_groups_report(**kwargs):
     all_computer_groups = [(group.id, group.name) for group in group_list]
     full_groups = group_list.retrieve_all()
 
-    all_policies = jss_connection.Policy().retrieve_all(
-        subset=["general", "scope"])
-    all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
-        subset=["general", "scope"])
+    all_policies = jss_connection.Policy(["general", "scope"]).retrieve_all()
+    all_configs = jss_connection.OSXConfigurationProfile(["general", "scope"]).retrieve_all()
     scope_xpath = "scope/computer_groups/computer_group"
     scope_exclusions_xpath = (
         "scope/exclusions/computer_groups/computer_group")
@@ -919,7 +925,7 @@ def build_computer_groups_report(**kwargs):
          (all_policies, scope_exclusions_xpath),
          (all_configs, scope_xpath),
          (all_configs, scope_exclusions_xpath)],
-        all_computer_groups, full_groups)
+         all_computer_groups, full_groups)
 
     report.heading = "Computer Group Usage Report"
     report.get_result_by_name("Used").description = (
@@ -960,16 +966,17 @@ def build_device_groups_report(**kwargs):
     full_groups = group_list.retrieve_all()
 
     all_configs = (
-        jss_connection.MobileDeviceConfigurationProfile().retrieve_all(
-            subset=["general", "scope"]))
+        jss_connection.MobileDeviceConfigurationProfile(["general", "scope"]).retrieve_all()
+        )
     all_provisioning_profiles = (
-        jss_connection.MobileDeviceProvisioningProfile().retrieve_all(
-            subset=["general", "scope"]))
+        jss_connection.MobileDeviceProvisioningProfile(["general", "scope"]).retrieve_all()
+        )
     all_apps = (
-        jss_connection.MobileDeviceApplication().retrieve_all(
-            subset=["general", "scope"]))
+        jss_connection.MobileDeviceApplication(["general", "scope"]).retrieve_all()
+        )
     all_ebooks = (
-        jss_connection.EBook().retrieve_all(subset=["general", "scope"]))
+        jss_connection.EBook(["general", "scope"]).retrieve_all()
+        )
     xpath = "scope/mobile_device_groups/mobile_device_group"
     exclusion_xpath = (
         "scope/exclusions/mobile_device_groups/mobile_device_group")
@@ -1011,8 +1018,7 @@ def build_policies_report(**kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
-    all_policies = jss_connection.Policy().retrieve_all(
-        subset=["general", "scope"])
+    all_policies = jss_connection.Policy(["general", "scope"]).retrieve_all()
     if not all_policies:
         return Report("Policy", [], "Policy Usage Report", {})
 
@@ -1060,8 +1066,7 @@ def build_config_profiles_report(**kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
-    all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
-        subset=["general", "scope"])
+    all_configs = jss_connection.OSXConfigurationProfile(["general", "scope"]).retrieve_all()
     if not all_configs:
         return Report("Computer Configuration Profile", [],
                       "Computer Configuration Profile Report", {})
@@ -1108,8 +1113,8 @@ def build_md_config_profiles_report(**kwargs):
     _ = kwargs
     jss_connection = JSSConnection.get()
     all_configs = (
-        jss_connection.MobileDeviceConfigurationProfile().retrieve_all(
-            subset=["general", "scope"]))
+        jss_connection.MobileDeviceConfigurationProfile(["general", "scope"]).retrieve_all()
+        )
     if not all_configs:
         return Report("Mobile Device Configuration Profile", [],
                       "Mobile Device Configuration Profile Report", {})
@@ -1156,8 +1161,8 @@ def build_apps_report(**kwargs):
     _ = kwargs
     jss_connection = JSSConnection.get()
     all_apps = (
-        jss_connection.MobileDeviceApplication().retrieve_all(
-            subset=["general", "scope"]))
+        jss_connection.MobileDeviceApplication(["general", "scope"]).retrieve_all()
+        )
     if not all_apps:
         return Report("Mobile Application", [],
                       "Mobile Device Application Report", {})
@@ -1275,11 +1280,31 @@ def get_nested_groups_names(group):
         A tuple of the group names nested in the provided group.
         Returns an empty set if no nested groups are present.
     """
-    return (
-        criterion.findtext("value")
-        for criterion in group.findall("criteria/criterion") if
-        criterion.findtext("name") in ("Computer Group", "Mobile Device Group")
-        and criterion.findtext("search_type") == "member of")
+    # print(group.criteria.criterion)
+    return_groups = []
+    for criterion in group.findall("criteria/criterion"):
+        try:
+            criterion.name.text
+            if (criterion.name.text in ("Computer Group", "Mobile Device Group") and
+                criterion.search_type.text == "member of"):
+                return_groups.append(criterion.value.text)
+        except AttributeError:
+            # print(criterion)
+            pass
+
+    return return_groups
+
+    # return (
+    #     criterion.value.text
+    #     for criterion in group.findall("criteria/criterion") if
+    #     criterion.name.text in ("Computer Group", "Mobile Device Group")
+    #     and criterion.search_type.text == "member of")
+
+    # return (
+    #     criterion.value
+    #     for criterion in group.findall("criteria/criterion") if
+    #     criterion.name in ("Computer Group", "Mobile Device Group")
+    #     and criterion.search_type == "member of")
 
 
 def get_full_groups_from_names(groups, full_groups):
@@ -1294,8 +1319,19 @@ def get_full_groups_from_names(groups, full_groups):
         A list of jss.ComputerGroup or jss.MobileDeviceGroup objects
         corresponding to the names given by the groups argument.
     """
-    return [full_group for group in groups for full_group in
-            full_groups if full_group.name == group]
+    return_full_groups = []
+
+    for full_group in full_groups:
+        if full_group.is_smart is True:
+            for group in groups:
+                group_name = group[1]
+                if full_group.name == group_name:
+                    return_full_groups.append(full_group)
+                    continue
+    return return_full_groups
+
+    # return [full_group for group in groups for full_group in
+    #         full_groups if full_group.name == group[1]]
 
 
 def get_names_from_full_objects(objects):
@@ -1865,11 +1901,12 @@ def remove(removal_tree):
             jss_connection.distribution_points.dp_info):
 
         # See if we are trying to delete any packages or scripts.
-        # JSS's which have been migratedd store their scripts in the
+        # JSS's which have been migrated store their scripts in the
         # database, and thus do not need to have them deleted.
         needs_file_removal = ["Package"]
-        if not jss_connection.jss_migrated:
-            needs_file_removal.append("Script")
+        # Assume that JSS has been migrated by now
+        # if not jss_connection.jss_migrated:
+        #     needs_file_removal.append("Script")
 
         file_type_removals = any([removal.tag for removal in removals if
                                   removal.tag in needs_file_removal])
@@ -1961,18 +1998,8 @@ def check_with_user():
     return result
 
 
-def main():
-    """Commandline processing."""
-    # Ensure we have the right version of python-jss.
-    python_jss_version = StrictVersion(PYTHON_JSS_VERSION)
-    if python_jss_version < REQUIRED_PYTHON_JSS_VERSION:
-        sys.exit("Requires python-jss version: %s. Installed: %s\n"
-                 "Please update" % (REQUIRED_PYTHON_JSS_VERSION,
-                                    python_jss_version))
-
-    # Handle command line arguments.
-    parser = build_argparser()
-    args = parser.parse_args()
+def connect(args):
+    """make the connection to the JSS"""
 
     # Allow override to prefs file
     if args.prefs:
@@ -1985,14 +2012,33 @@ def main():
     elif os.path.exists(os.path.expanduser(AUTOPKG_PREFERENCES)):
         autopkg_env = Plist(AUTOPKG_PREFERENCES)
         connection = map_jssimporter_prefs(autopkg_env)
+        print "Preferences used: %s" % AUTOPKG_PREFERENCES
     else:
         try:
             connection = jss.JSSPrefs()
+            print "Preferences used: %s" % PYTHON_JSS_PREFERENCES
         except jss.exceptions.JSSPrefsMissingFileError:
             sys.exit("No python-jss or AutoPKG/JSSImporter configuration "
                      "file!")
 
     JSSConnection.setup(connection)
+
+def main():
+    """Commandline processing."""
+
+    # Ensure we have the right version of python-jss.
+    python_jss_version = StrictVersion(PYTHON_JSS_VERSION)
+    if python_jss_version < REQUIRED_PYTHON_JSS_VERSION:
+        sys.exit("Requires python-jss version: %s. Installed: %s\n"
+                 "Please update" % (REQUIRED_PYTHON_JSS_VERSION,
+                                    python_jss_version))
+
+    # Handle command line arguments.
+    parser = build_argparser()
+    args = parser.parse_args()
+
+    # make the connection to the JSS
+    connect(args)
 
     # Determine actions based on supplied arguments.
 

@@ -23,16 +23,19 @@ Obviously this is a powerful and dangerous tool. You've been warned!
 
 ## Setup and Situation
 You need a couple of things to get this working:
-- [python-jss](https://github.com/sheagcraig/python-jss)
+- python-jss 2.0.0 or greater. This is most easily obtained by installing
+  [JSSImporter](https://github.com/jssimporter/JSSImporter). The JSSImporter path is added to the
+  beginning of the python_path during script execution, so this version will be found first.
 - One of the following:
   - A functioning
-  [AutoPkg](https://github.com/autopkg/autopkg)/[JSSImporter](https://github.com/sheagcraig/JSSImporter)
-  preferences file,
-  - A [python-jss](https://github.com/sheagcraig/python-jss)
-  preferences file.
-  - Alternatively, use the `--prefs` option to supply a path to a different preferences file. This must contain the `JSS_URL`, `API_USERNAME` and `API_PASSWORD` keys in the same format as an AutoPkg preferences file.
+    [AutoPkg](https://github.com/autopkg/autopkg)/[JSSImporter](https://github.com/jssimporter/JSSImporter)
+    preferences file,
+  - A [python-jss](https://github.com/jssimporter/python-jss)
+    preferences file.
+  - Alternatively, use the `--prefs` option to supply a path to a different preferences file.
+    This must contain the `JSS_URL`, `API_USERNAME` and `API_PASSWORD` keys in the same format as an AutoPkg preferences file.
 
-Spruce will use file specified in a `--prefs` option first. If none exists, it will try to use the AutoPkg preferences. If they don't exist, it will try to use the `python-jss` preferences. 
+Spruce will use file specified in a `--prefs` option first. If none exists, it will try to use the AutoPkg preferences. If they don't exist, it will try to use the `python-jss` preferences.
 
 ## XML Input File Format for `--remove`
 To remove objects from your JSS, you'll need to create a removal file. This file is a simple XML file which has a list of objects to remove and their ID's. Spruce uses the ID instead of name because some object types (like Computers) allow multiple objects to have the same name.
@@ -78,11 +81,10 @@ An example file would look something like this (includes extra metadata from the
     </Removals>
 </SpruceReport>
 ```
+
 ## The Future
-As I devise more tactics for simplifying, cleaning, and reorganizing, Spruce
-will be updated with added functions. Here are some planned features:
-- Merge in [Recategorizer](https://github.com/sheagcraig/Recategorizer), since
-  it is another organizational tool
+Development is basically on hold as the original and very capable developer Shea Craig is no longer involved.
+Help with further development is very welcome! Some suggestions for improvements:
 - Check for unused categories.
 - Check for unused icons, although that's currently very involved.
 - Check for unused ebooks.
