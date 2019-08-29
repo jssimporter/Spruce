@@ -4,6 +4,22 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [3.0.0b1] - 2019-08-18 Alpine Spruce (Picea alpestris)
+### CHANGED
+- Now requires python-jss 2.0.0 or above,
+  as installed via JSSImporter 1.0.0 or above,
+  i.e. in the folder `/Library/Application Support/JSSImporter`.
+  python-jss installed from `pip` or from source will be ignored.
+- The default preferences are now taken directly from the AutoPkg preferences,
+  i.e. `com.github.autopkg`.
+- Various sections of code had to be refactored to function with the upstream
+  changes to python-jss (and for @GrahamPugh to understand it...)
+
+### ADDED
+- The JSS name is outputted during execution, to verify the correct Preferences
+  are being used.
+
+
 ## [2.0.1] - 2016-06-22 White Spruce (Picea glauca)
 ### Fixed
 - Now handles JSSGetError when trying to do a JDS delete during removal (#6).
