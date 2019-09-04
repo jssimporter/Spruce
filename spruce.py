@@ -1933,7 +1933,7 @@ def remove(removal_tree):
             try:
                 # Get the item from the JSS.
                 obj = search_func(item.attrib["id"])
-            except jss.JSSGetError as error:
+            except jss.GetError as error:
                 # Object probably no longer exists.
                 if hasattr(error, "status_code"):
                     print ("%s object %s with ID %s is not available or does "
@@ -1967,7 +1967,7 @@ def remove(removal_tree):
             # However, if there is a DistributionServer type repo
             # configured, it tries to delete the db object, which needs
             # "name". Since this has already been done, it's going to
-            # throw a JSSGetError regardless. In the event that a user has
+            # throw a GetError regardless. In the event that a user has
             # a Display Name that matches another package's filename, bad
             # things could happen!
             # Get filename, but fall back to name.
@@ -1978,7 +1978,7 @@ def remove(removal_tree):
             except OSError as error:
                 print ("Unable to delete %s: %s with error: %s" %
                        (item.tag, filename, error.message))
-            except jss.JSSGetError:
+            except jss.GetError:
                 # User has a DistributionServer of some kind and
                 # A.) The db object has already been deleted above
                 # and possibly also B.) The "Display Name" and
