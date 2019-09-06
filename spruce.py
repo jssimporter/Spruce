@@ -1951,7 +1951,7 @@ def remove(removal_tree):
         try:
             obj.delete()
             print "%s object %s: %s deleted." % (item.tag, obj.id, obj.name)
-        except jss.JSSDeleteError as error:
+        except jss.DeleteError as error:
             print ("%s object %s with ID %s failed to delete.\n"
                    "Status Code:%s Error: %s" % (
                        item.tag, item.text, item.attrib["id"],
