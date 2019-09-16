@@ -3,7 +3,7 @@
 Spruce 3
 ========
 
-Spruce is a command line tool that looks for objects on your Jamf Pro server which have no current usage, are out of date, or are otherwise "crufty".
+Spruce is a command line tool that looks for objects on your Jamf Pro server which have no current usage, are out of date, or are otherwise "crufty". It can optionally remove objects from its findings.
 
 Instructions for use
 --------------------
