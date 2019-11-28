@@ -39,7 +39,7 @@ from Foundation import (NSData,
 # pylint: enable=no-name-in-module
 
 sys.path.insert(0, '/Library/Application Support/JSSImporter')
-
+import requests
 import jss
 # Ensure that python-jss dependency is at minimum version
 try:
