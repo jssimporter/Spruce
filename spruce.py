@@ -59,10 +59,10 @@ PYTHON_JSS_PREFERENCES = (
 DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
                "\n\nUsing the various reporting options, you can see "
                "unused packages, printers, scripts,\ncomputer groups, "
-               "configuration profiles, mobile device groups, and "
-               "mobile\ndevice configuration profiles.\n\n"
-               "Reports are by default output to stdout, and may "
-               "optionally be output as\nXML for later use in "
+               "extension attributes, configuration profiles, mobile "
+               "device groups, and mobile\ndevice configuration "
+               "profiles.\n\nReports are by default output to stdout, "
+               "and may optionally be output as\nXML for later use in "
                "automated removal.\n\n"
                "Spruce uses configured AutoPkg/JSSImporter settings "
                "first. If those are\nmissing, Spruce falls back to "
@@ -944,6 +944,66 @@ def build_computer_groups_report(**kwargs):
     return report
 
 
+def build_computer_ea_report(**kwargs):
+    """Report on computer extension attributes usage.
+
+    Looks for computer extension attributes not being used as criteria in any
+    smart groups. This does not mean they neccessarily are in-need-of-deletion.
+
+    Returns:
+        A Report object.
+    """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
+    jss_connection = JSSConnection.get()
+    all_eas = [(ea.id, ea.name) for ea in jss_connection.ComputerExtensionAttribute()]
+    if not all_eas:
+        return Report("Computer Extension Attribute", [],
+                      "Computer Extension Attribute Usage Report", {})
+    all_eas_result = Result(all_eas, False, "All Computer Extension Attributes")
+
+    # Build results for extension attributes which aren't used in criteria.
+    all_groups = jss_connection.ComputerGroup().retrieve_all()
+    used_criteria = []
+    for group in all_groups:
+        criteria_names = get_all_criteria_names(group)
+        for criteria_name in criteria_names:
+            if criteria_name not in used_criteria:
+                used_criteria.append(criteria_name)
+
+    unused_eas = [ea for ea in all_eas if ea[1] not in used_criteria]
+    desc = ("All extension attributes which are not used in computer group criteria.")
+    unused = Result(unused_eas, True,
+                    "Unused Computer Extension Attributes", desc)
+    unused_cruftiness = calculate_cruft(unused_eas, all_eas)
+
+    report = Report("Computer Extension Attribute",
+                    [unused, all_eas_result],
+                    "Computer Extension Attribute Report",
+                    {"Cruftiness": {}})
+    report.metadata["Cruftiness"]["Unused Computer Extension Attribute Cruftiness"] = (
+        get_cruft_strings(unused_cruftiness))
+
+    return report
+
+
+def get_all_criteria_names(group):
+    """Get the names of any extension attribute criteria in a group, or an empty set.
+
+    Args:
+        group: A jss.ComputerGroup object to search for extension attributes.
+
+    Returns:
+        A tuple of the extension attribute criteria in the provided group.
+        Returns an empty set if no extension attributes are present.
+    """
+    return (
+        criterion.findtext("name")
+        for criterion in group.findall("criteria/criterion") if
+        criterion.findtext("search_type") != "member of")
+
+
 def build_device_groups_report(**kwargs):
     """Report on mobile device groups usage.
 
@@ -1711,6 +1771,9 @@ def build_argparser():
     phelp = "Generate unused computer-groups report (Static and Smart)."
     group.add_argument("-g", "--computer_groups", help=phelp,
                        action="store_true")
+    phelp = "Generate unused computer extension attribute report."
+    group.add_argument("-e", "--computer_extension_attributes",
+                       help=phelp, action="store_true")
     phelp = "Generate unused package report."
     group.add_argument("-p", "--packages", help=phelp, action="store_true")
     phelp = "Generate unused printer report."
@@ -1774,6 +1837,10 @@ def run_reports(args):
     reports["computer_groups"] = {"heading": "Computer Groups Report",
                                   "func": build_computer_groups_report,
                                   "report": None}
+    reports["computer_extension_attributes"] = {
+        "heading": "Computer Extension Attributes Report",
+        "func": build_computer_ea_report,
+        "report": None}
     reports["packages"] = {"heading": "Package Report",
                            "func": build_packages_report,
                            "report": None}
