@@ -23,7 +23,7 @@ import argparse
 from collections import Counter, namedtuple
 import datetime
 from distutils.version import StrictVersion
-from HTMLParser import HTMLParser
+from html.parser import HTMLParser
 import os
 import re
 import subprocess
@@ -38,7 +38,7 @@ from Foundation import (NSData,
                         NSPropertyListXMLFormat_v1_0)
 # pylint: enable=no-name-in-module
 
-sys.path.insert(0, '/Library/Application Support/JSSImporter')
+sys.path.insert(0, '/Library/AutoPkg/JSSImporter')
 import requests
 import jss
 # Ensure that python-jss dependency is at minimum version
@@ -48,7 +48,7 @@ except ImportError:
     PYTHON_JSS_VERSION = "0.0.0"
 
 
-REQUIRED_PYTHON_JSS_VERSION = StrictVersion("2.0.0")
+REQUIRED_PYTHON_JSS_VERSION = StrictVersion("2.1.0")
 
 
 # Globals
@@ -74,7 +74,7 @@ DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
                "only those things which you wish to remove.\nFinally, "
                "pass this filename as an option to the --remove "
                "argument to\nremove the specified objects.")
-SPRUCE = "\xF0\x9F\x8C\xB2"
+SPRUCE = "\N{evergreen tree}"
 __version__ = "2.0.1"
 
 
@@ -698,7 +698,7 @@ def validate_check_in_period(check_in_period):
         try:
             check_in_period = int(check_in_period)
         except ValueError:
-            print "Incorrect check-in period given. Setting to 30."
+            print("Incorrect check-in period given. Setting to 30.")
             check_in_period = 30
 
     return check_in_period
@@ -923,10 +923,13 @@ def build_computer_groups_report(**kwargs):
     all_computer_groups = [(group.id, group.name) for group in group_list]
     full_groups = group_list.retrieve_all()
 
-    all_policies = jss_connection.Policy().retrieve_all(
-        subset=["general", "scope"])
-    all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
-        subset=["general", "scope"])
+    # all_policies = jss_connection.Policy().retrieve_all(
+    #     subset=[])
+    all_policies = jss_connection.Policy(["general", "scope"]).retrieve_all()
+    # all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
+    #     subset=["general", "scope"])
+    all_configs = jss_connection.OSXConfigurationProfile(
+                                 ["general", "scope"]).retrieve_all()
 
     # Account for fix in python-jss that isn't yet part of a release.
     if hasattr(jss_connection, 'RestrictedSoftware'):
@@ -1529,35 +1532,35 @@ def print_output(report, verbose=False):
     # Indent is a space and a spruce emoji wide (so 3).
     indent_size = 3 * " "
     forest_length = (64 - len(report.heading)) / 2
-    print "%s  %s %s " % (SPRUCE, report.heading, SPRUCE * forest_length)
+    print("%s  %s %s " % (SPRUCE, report.heading, SPRUCE * int(forest_length)))
     if not report.results:
-        print "%s  No Results %s" % (SPRUCE, SPRUCE)
+        print("%s  No Results %s" % (SPRUCE, SPRUCE))
     else:
         for result in report.results:
             if not result.include_in_non_verbose and not verbose:
                 continue
             else:
-                print "\n%s  %s (%i)" % (
-                    SPRUCE, result.heading, len(result.results))
+                print("\n%s  %s (%i)" % (
+                    SPRUCE, result.heading, len(result.results)))
                 if result.description:
-                    print textwrap.fill(result.description,
+                    print(textwrap.fill(result.description,
                                         initial_indent=indent_size,
-                                        subsequent_indent=indent_size)
-                print
+                                        subsequent_indent=indent_size))
+                print()
                 for line in sorted(result.results,
                                 key=lambda s: s[1].upper().strip()):
                     if line[1].strip() == "":
                         text = "(***NO NAME: ID is %s***)" % line[0]
                     else:
                         text = line[1]
-                    print "\t%s" % text
+                    print("\t%s" % text)
 
-        for heading, subsection in report.metadata.iteritems():
-            print "\n%s  %s %s" % (SPRUCE, heading, SPRUCE)
-            for subheading, strings in subsection.iteritems():
-                print "%s  %s" % (SPRUCE, subheading)
+        for heading, subsection in report.metadata.items():
+            print("\n%s  %s %s" % (SPRUCE, heading, SPRUCE))
+            for subheading, strings in subsection.items():
+                print("%s  %s" % (SPRUCE, subheading))
                 for line in strings:
-                    print "\t%s" % line
+                    print("\t%s" % line)
 
 
 def get_cruftmoji(percentage):
@@ -1571,21 +1574,22 @@ def get_cruftmoji(percentage):
     """
     level = [
         # Master
-        ("\xf0\x9f\x99\x8f \xf0\x9f\x8d\xbb \xf0\x9f\x8d\x95 \xf0\x9f\x91\xbe "
-         "\xf0\x9f\x8d\x95 \xf0\x9f\x8d\xbb \xf0\x9f\x99\x8f"),
+        ("\N{person with folded hands} \N{clinking beer mugs} \N{slice of pizza} "
+         "\N{alien monster} \N{slice of pizza} \N{clinking beer mugs} "
+         "\N{person with folded hands}"),
         # Snakes on a Plane
-        "\xf0\x9f\x90\x8d \xf0\x9f\x90\x8d \xe2\x9c\x88\xef\xb8\x8f",
+        "\N{snake} \N{snake} \N{airplane}",
         # Furry Hat Pizza Party
-        "\xf0\x9f\x8d\x95 \xf0\x9f\x92\x82 \xf0\x9f\x8d\x95",
-        "\xf0\x9f\x91\xbb", # Ghost
-        "\xf0\x9f\x92\xa3", # The Bomb
-        "\xf0\x9f\x90\xa9 \xf0\x9f\x92\xa8", # Poodle Fart
-        "\xf0\x9f\x92\x80", # Skull
-        "\xf0\x9f\x93\xbc", # VHS Cassette
-        "\xf0\x9f\x8c\xb5", # Cactus
-        "\xf0\x9f\x92\xa9", # Smiling Poo
-        "\xf0\x9f\x92\xa9 " * 3] # Smiling Poo (For 100%)
-    return level[int(percentage * 10)].decode("utf-8")
+        "\N{slice of pizza} \N{guardsman} \N{slice of pizza}",
+        "\N{ghost}", # Ghost
+        "\N{bomb}", # The Bomb
+        "\N{poodle} \N{dash symbol}", # Poodle Fart
+        "\N{skull}", # Skull
+        "\N{videocassette}", # VHS Cassette
+        "\N{cactus}", # Cactus
+        "\N{pile of poo}", # Smiling Poo
+        "\N{pile of poo} " * 3] # Smiling Poo (For 100%)
+    return str(level[int(percentage * 10)])
 
 
 def get_cruft_strings(cruft):
@@ -1620,7 +1624,7 @@ def fix_version_counts(version_counts):
     return result
 
 
-def get_histogram_strings(data, padding=0, hist_char="\xf0\x9f\x8d\x95"):
+def get_histogram_strings(data, padding=0, hist_char="\N{slice of pizza}"):
     """Generate a horizontal text histogram.
 
     Given a dictionary of items, generate a list of column aligned,
@@ -1640,7 +1644,7 @@ def get_histogram_strings(data, padding=0, hist_char="\xf0\x9f\x8d\x95"):
         List of strings ready to print.
     """
     max_key_width = max([len(key) for key in data])
-    max_val_width = max([len(str(val)) for val in data.values()])
+    max_val_width = max([len(str(val)) for val in list(data.values())])
     max_value = max(data.values())
     _, width = get_terminal_size()
     # Find the length we have left for the histogram bars.
@@ -1648,7 +1652,7 @@ def get_histogram_strings(data, padding=0, hist_char="\xf0\x9f\x8d\x95"):
     # guaranteed value of one that gets added.
     histogram_width = width - padding - max_key_width - max_val_width - 6
     result = []
-    for key, val in data.iteritems():
+    for key, val in data.items():
         preamble = "{:>{max_key}} ({:>{max_val}}): ".format(
             key, val, max_key=max_key_width, max_val=max_val_width)
         #percentage = float(val) / osx_clients
@@ -1675,10 +1679,10 @@ def get_out_of_date_strings(data):
     result = []
     if data:
         max_key_width = max([len(key) for key in data])
-        max_val1_width = max([len(str(val[0])) for val in data.values()])
-        max_val2_width = max([len(str(val[1])) for val in data.values()])
-        for key, val in data.iteritems():
-            output_string = (u"{:>{max_key}} JSS Version:{:>{max_val1}} App "
+        max_val1_width = max([len(str(val[0])) for val in list(data.values())])
+        max_val2_width = max([len(str(val[1])) for val in list(data.values())])
+        for key, val in data.items():
+            output_string = ("{:>{max_key}} JSS Version:{:>{max_val1}} App "
                              "Store Version: {:>{max_val2}}".format(
                                  key, val[0], val[1], max_key=max_key_width,
                                  max_val1=max_val1_width,
@@ -1733,10 +1737,10 @@ def add_report_output(root, report):
             item.attrib["id"] = str(id_)
 
     # Metadata
-    for metadata, val in report.metadata.iteritems():
+    for metadata, val in report.metadata.items():
         metadata_element = ET.SubElement(report_element, tagify(metadata))
         #subreport_element.attrib["length"] = str(len(result))
-        for submeta, submeta_val in val.iteritems():
+        for submeta, submeta_val in val.items():
             item = ET.SubElement(metadata_element, tagify(submeta))
             for line in submeta_val:
                 value = ET.SubElement(item, "Value")
@@ -1935,8 +1939,8 @@ def run_reports(args):
     results = []
     for report_name in requested_reports:
         report_dict = reports[report_name]
-        print "%s  Building: %s... %s" % (SPRUCE, report_dict["heading"],
-                                          SPRUCE)
+        print("%s  Building: %s... %s" % (SPRUCE, report_dict["heading"],
+                                          SPRUCE))
         func = reports[report_name]["func"]
         results.append(func(**args_dict))
 
@@ -1947,7 +1951,7 @@ def run_reports(args):
     for report in results:
         # Print output to stdout.
         if not args.ofile:
-            print
+            print()
             print_output(report, args.verbose)
         else:
             add_report_output(output_xml, report)
@@ -1959,9 +1963,9 @@ def run_reports(args):
         try:
             tree.write(os.path.expanduser(args.ofile), encoding="UTF-8",
                     xml_declaration=True)
-            print "%s  Wrote output to %s" % (SPRUCE, args.ofile)
+            print("%s  Wrote output to %s" % (SPRUCE, args.ofile))
         except IOError:
-            print "Error writing output to %s" % args.ofile
+            print("Error writing output to %s" % args.ofile)
             sys.exit(1)
 
 
@@ -2062,9 +2066,9 @@ def remove(removal_tree):
         # Try to delete the item.
         try:
             obj.delete()
-            print "%s object %s: %s deleted." % (item.tag, obj.id, obj.name)
+            print("%s object %s: %s deleted." % (item.tag, obj.id, obj.name))
         except jss.DeleteError as error:
-            print ("%s object %s with ID %s failed to delete.\n"
+            print("%s object %s with ID %s failed to delete.\n"
                    "Status Code:%s Error: %s" % (
                        item.tag, item.text, item.attrib["id"],
                        error.status_code, error.message))
@@ -2086,9 +2090,9 @@ def remove(removal_tree):
             filename = obj.findtext("filename", item.text)
             try:
                 jss_connection.distribution_points.delete(filename)
-                print "%s file %s deleted." % (item.tag, obj.name)
+                print("%s file %s deleted." % (item.tag, obj.name))
             except OSError as error:
-                print ("Unable to delete %s: %s with error: %s" %
+                print("Unable to delete %s: %s with error: %s" %
                        (item.tag, filename, error.message))
             except jss.GetError:
                 # User has a DistributionServer of some kind and
@@ -2101,7 +2105,7 @@ def remove(removal_tree):
 
 def check_with_user():
     jss_connection = JSSConnection.get()
-    response = raw_input("Are you sure you want to continue deleting objects "
+    response = input("Are you sure you want to continue deleting objects "
                          "from %s? (Y or N): " % jss_connection.base_url)
     if response.strip().upper() in ["Y", "YES"]:
         result = True
@@ -2118,17 +2122,17 @@ def connect(args):
         if os.path.exists(os.path.expanduser(args.prefs)):
             user_supplied_prefs = Plist(args.prefs)
             connection = map_jssimporter_prefs(user_supplied_prefs)
-            print "Preferences used: %s" % args.prefs
+            print("Preferences used: %s" % args.prefs)
     # Otherwise, get AutoPkg configuration settings for JSSImporter,
     # and barring that, get python-jss settings.
     elif os.path.exists(os.path.expanduser(AUTOPKG_PREFERENCES)):
         autopkg_env = Plist(AUTOPKG_PREFERENCES)
         connection = map_jssimporter_prefs(autopkg_env)
-        print "Preferences used: %s" % AUTOPKG_PREFERENCES
+        print("Preferences used: %s" % AUTOPKG_PREFERENCES)
     else:
         try:
             connection = jss.JSSPrefs()
-            print "Preferences used: %s" % PYTHON_JSS_PREFERENCES
+            print("Preferences used: %s" % PYTHON_JSS_PREFERENCES)
         except jss.exceptions.JSSPrefsMissingFileError:
             sys.exit("No python-jss or AutoPKG/JSSImporter configuration "
                      "file!")

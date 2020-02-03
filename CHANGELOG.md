@@ -4,6 +4,20 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [3.0.0b2] - 2020-02-03 Bruce Lee Spruce Three
+### CHANGED
+- Now requires python-jss 2.1.0 or above,
+  as installed via JSSImporter 1.1.0 or above,
+  i.e. in the folder `/Library/AutoPkg/JSSImporter`.
+  Also requires Python3, best run using the AutoPkg-supplied python3 binary:
+  `/Library/AutoPkg/Python3/Python.framework/Versions/Current/bin/python3 ./spruce.py -h`
+  python-jss installed from `pip` or from source will be ignored.
+- The default preferences are now taken directly from the AutoPkg preferences,
+  i.e. `com.github.autopkg`.
+- A few updates to the code were required to function with python3 and to accommodate
+  upstream changes to python-jss.
+  
+
 ## [3.0.0b1] - 2019-08-18 Alpine Spruce (Picea alpestris)
 ### CHANGED
 - Now requires python-jss 2.0.0 or above,

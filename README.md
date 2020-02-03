@@ -10,6 +10,12 @@ Instructions for use
 
 **For details on how to use Spruce, please visit our [Wiki](https://github.com/jssimporter/Spruce/wiki).**
 
+**IMPORTANT:**
+Spruce 3 requires python-jss 2.1.0 and python3, with the `Foundation` module. The simplest way to achieve this is to install AutoPkg 2.0 and JSSImporter 1.1.0, and then run Spruce using the python that is supplied with AutoPkg:
+
+```
+/Library/AutoPkg/Python3/Python.framework/Versions/Current/bin/python3 ./spruce.py -h
+```
 
 Acknowledgements
 ----------------
