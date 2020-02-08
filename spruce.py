@@ -75,7 +75,7 @@ DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
                "only those things which you wish to remove.\nFinally, "
                "pass this filename as an option to the --remove "
                "argument to\nremove the specified objects.")
-SPRUCE = "\N{evergreen tree}"
+SPRUCE = "🌲"
 __version__ = "2.0.1"
 
 
@@ -569,56 +569,26 @@ def get_version_and_model_spread(devices):
     # Compare on the model identifier since it is an easy numerical
     # sort.
     strings = sorted(get_histogram_strings(model_counts, padding=8),
-                     cmp=model_identifier_cmp)
+                     key=model_compare)
     model_metadata = {"Hardware Model Histogram (%s)" % total: strings}
 
     return (version_metadata, model_metadata)
 
 
-def model_identifier_cmp(model_string_one, model_string_two):
-    """Compare model identifier strings.
+def model_compare(histogram_string):
+    """Return Model Identifier for use as key in sorted() function.
 
     Args:
-        model_one, model_two: Model string from "modle / model_identifier"
-            concatenation. The identifier string is made up of model
-            name, numeric major, minor version. e.g. the string
-            "iMac Intel (27-inch, Early 2013) / iMac13,3" is compared
-            by "iMac", then "13", then "3".
+        histogram_string: Histogram string comprising of Mac model, count and emoji e.g.
+            iMac Intel (21.5-inch, Late 2013) / iMac14,1 (2): 🍕🍕🍕🍕🍕🍕
 
     Returns:
-        -1 for less than, 0 for equal, or 1 for greater than.
+        Model Identifier e.g. iMac14,1
     """
-    # pylint: disable=invalid-name
-    VersionIdentifier = namedtuple("VersionIdentifier",
-                                   ("model", "major", "minor"))
-    # pylint: enable=invalid-name
-    model_string_one = model_string_one.split("/")[1].lstrip()
-    model_string_two = model_string_two.split("/")[1].lstrip()
-    pattern = re.compile(r"(?P<model>\D+)(?P<major>\d+),(?P<minor>\d+)")
-
-    search_one = re.search(pattern, model_string_one)
-    if search_one:
-        model_one = VersionIdentifier(*search_one.groups())
-    else:
-        model_one = VersionIdentifier(0, 0, 0)
-
-    search_two = re.search(pattern, model_string_two)
-    if search_two:
-        model_two = VersionIdentifier(*search_two.groups())
-    else:
-        model_two = VersionIdentifier(0, 0, 0)
-
-    # pylint: disable=undefined-variable
-    if model_one.model == model_two.model:
-        if model_one.major == model_two.major:
-            result = cmp(int(model_one.minor), int(model_two.minor))
-        else:
-            result = cmp(int(model_one.major), int(model_two.major))
-    else:
-        result = cmp(model_one.model, model_two.model)
-    # pylint: enable=undefined-variable
-
-    return result
+    pattern = re.compile(r"(\D+\d+,\d+)")
+    string_search = re.search(pattern, histogram_string)
+    if string_search:
+        return string_search.group(1)
 
 
 def build_computers_report(check_in_period, **kwargs):
@@ -1579,21 +1549,21 @@ def get_cruftmoji(percentage):
     """
     level = [
         # Master
-        ("\N{person with folded hands} \N{clinking beer mugs} \N{slice of pizza} "
-         "\N{alien monster} \N{slice of pizza} \N{clinking beer mugs} "
-         "\N{person with folded hands}"),
+        ("🙅‍♀️ 🍻 🍕 "
+         "👽 🍕 🍻 "
+         "🙅‍♀️"),
         # Snakes on a Plane
-        "\N{snake} \N{snake} \N{airplane}",
+        "🐍 🐍 ✈️",
         # Furry Hat Pizza Party
-        "\N{slice of pizza} \N{guardsman} \N{slice of pizza}",
-        "\N{ghost}", # Ghost
-        "\N{bomb}", # The Bomb
-        "\N{poodle} \N{dash symbol}", # Poodle Fart
-        "\N{skull}", # Skull
-        "\N{videocassette}", # VHS Cassette
-        "\N{cactus}", # Cactus
-        "\N{pile of poo}", # Smiling Poo
-        "\N{pile of poo} " * 3] # Smiling Poo (For 100%)
+        "🍕 💂‍♀️ 🍕",
+        "👻", # Ghost
+        "💣", # The Bomb
+        "🐩 💨", # Poodle Fart
+        "💀", # Skull
+        "📼", # VHS Cassette
+        "🌵", # Cactus
+        "💩", # Smiling Poo
+        "💩 " * 3] # Smiling Poo (For 100%)
     return str(level[int(percentage * 10)])
 
 
@@ -1629,7 +1599,7 @@ def fix_version_counts(version_counts):
     return result
 
 
-def get_histogram_strings(data, padding=0, hist_char="\N{slice of pizza}"):
+def get_histogram_strings(data, padding=0, hist_char="🍕"):
     """Generate a horizontal text histogram.
 
     Given a dictionary of items, generate a list of column aligned,
@@ -1655,7 +1625,8 @@ def get_histogram_strings(data, padding=0, hist_char="\N{slice of pizza}"):
     # Find the length we have left for the histogram bars.
     # Magic number 6 is the _():_ parts of the string, and the
     # guaranteed value of one that gets added.
-    histogram_width = width - padding - max_key_width - max_val_width - 6
+    # all divided by 3 to take account of the extra width of a pizza slice
+    histogram_width = (width - padding - max_key_width - max_val_width - 6) / 3
     result = []
     for key, val in data.items():
         preamble = "{:>{max_key}} ({:>{max_val}}): ".format(
@@ -1663,7 +1634,11 @@ def get_histogram_strings(data, padding=0, hist_char="\N{slice of pizza}"):
         #percentage = float(val) / osx_clients
         percentage = float(val) / max_value
         histogram_bar = int(percentage * histogram_width + 1) * hist_char
-        result.append((preamble + histogram_bar).decode("utf-8"))
+        try:
+            result.append((preamble + histogram_bar).decode("utf-8"))
+        except AttributeError:
+            result.append(preamble + histogram_bar)
+
     return result
 
 
