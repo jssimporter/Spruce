@@ -31,16 +31,17 @@ import sys
 import textwrap
 from xml.etree import ElementTree as ET
 
-# pylint: disable=no-name-in-module
+# pylint: disable=import-error
 from Foundation import (NSData,
                         NSPropertyListSerialization,
                         NSPropertyListMutableContainersAndLeaves,
                         NSPropertyListXMLFormat_v1_0)
-# pylint: enable=no-name-in-module
 
 sys.path.insert(0, '/Library/AutoPkg/JSSImporter')
 import requests
 import jss
+# pylint: enable=import-error
+
 # Ensure that python-jss dependency is at minimum version
 try:
     from jss import __version__ as PYTHON_JSS_VERSION
@@ -204,10 +205,12 @@ class JSSConnection(object):
         if not connection:
             connection = {"jss_prefs": jss.JSSPrefs()}
         cls._jss_prefs = connection
+        # pylint: disable=not-a-mapping
         if isinstance(connection, jss.JSSPrefs):
             cls._jss = jss.JSS(jss_prefs=cls._jss_prefs)
         else:
             cls._jss = jss.JSS(**cls._jss_prefs)
+        # pylint: enable=not-a-mapping
 
     @classmethod
     def get(cls):
@@ -346,7 +349,7 @@ def build_container_report(containers_with_search_paths, jss_objects):
     used_object_sets = []
     for containers, search in containers_with_search_paths:
         search = "container.%s" % search.replace('/',".")
-        for container in containers:
+        for _ in containers:
             try:
                 obj = eval(search)
                 if obj is not None:
@@ -605,6 +608,7 @@ def model_identifier_cmp(model_string_one, model_string_two):
     else:
         model_two = VersionIdentifier(0, 0, 0)
 
+    # pylint: disable=undefined-variable
     if model_one.model == model_two.model:
         if model_one.major == model_two.major:
             result = cmp(int(model_one.minor), int(model_two.minor))
@@ -612,6 +616,7 @@ def model_identifier_cmp(model_string_one, model_string_two):
             result = cmp(int(model_one.major), int(model_two.major))
     else:
         result = cmp(model_one.model, model_two.model)
+    # pylint: enable=undefined-variable
 
     return result
 
@@ -2093,7 +2098,7 @@ def remove(removal_tree):
                 print("%s file %s deleted." % (item.tag, obj.name))
             except OSError as error:
                 print("Unable to delete %s: %s with error: %s" %
-                       (item.tag, filename, error.message))
+                       (item.tag, filename, error))
             except jss.GetError:
                 # User has a DistributionServer of some kind and
                 # A.) The db object has already been deleted above
