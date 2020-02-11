@@ -1780,7 +1780,8 @@ def add_output_metadata(root):
     spruce_version.text = __version__
     python_jss_version = ET.SubElement(root, "python-jssVersion")
     python_jss_version.text = jss.__version__
-    ET.SubElement(root, "Removals")
+    removals = ET.SubElement(root, "Removals")
+    removals.insert(0, ET.Comment("Move items to be removed here"))
 
 
 def add_report_output(root, report):
@@ -1867,7 +1868,7 @@ def build_argparser():
     phelp = ("Include a list of all objects and used objects in addition to "
              "unused objects in reports.")
     parser.add_argument("-v", "--verbose", help=phelp, action="store_true")
-    phelp = ("Show emoji in output and reports.")
+    phelp = ("Show cute emoji in output and reports.")
     parser.add_argument("--kawaii", help=phelp, action="store_true")
     phelp = ("For computer and mobile device reports, the number of "
              "days since the last check-in to consider device "
