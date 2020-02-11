@@ -1535,7 +1535,7 @@ def print_output(report, verbose=False):
                     print(textwrap.fill(result.description,
                                         initial_indent=indent_size,
                                         subsequent_indent=indent_size))
-                print()
+                print("")
                 for line in sorted(result.results,
                                 key=lambda s: s[1].upper().strip()):
                     if line[1].strip() == "":
@@ -2029,7 +2029,7 @@ def run_reports(args):
     for report in results:
         # Print output to stdout.
         if not args.ofile:
-            print()
+            print("")
             print_output(report, args.verbose)
         else:
             add_report_output(output_xml, report)
