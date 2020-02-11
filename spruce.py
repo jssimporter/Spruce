@@ -349,7 +349,7 @@ def build_container_report(containers_with_search_paths, jss_objects):
     used_object_sets = []
     for containers, search in containers_with_search_paths:
         search = "container.%s" % search.replace('/',".")
-        for _ in containers:
+        for container in containers:
             try:
                 obj = eval(search)
                 if obj is not None:
