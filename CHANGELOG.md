@@ -4,6 +4,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [3.0.0b5] - 2020-02-03 Kawaii
+### CHANGED
+- Emoji are no longer shown unless the new `--kawaii` argument is passed at the command line.
+- Emoji are rendered differently in python 2 and 3. This is to deal with attempted fixes in 
+  versions 3.0.0b3 and 3.0.0b4 which were only partially successful.
+
 ## [3.0.0b2] - 2020-02-03 Bruce Lee Spruce Three
 ### CHANGED
 - Now requires python-jss 2.1.0 or above,

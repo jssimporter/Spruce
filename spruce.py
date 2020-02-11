@@ -75,7 +75,8 @@ DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
                "only those things which you wish to remove.\nFinally, "
                "pass this filename as an option to the --remove "
                "argument to\nremove the specified objects.")
-SPRUCE = "🌲"
+
+
 __version__ = "2.0.1"
 
 
@@ -1504,6 +1505,19 @@ def print_output(report, verbose=False):
         verbose: Bool, whether to print all results or just unused
             results.
     """
+
+    # Handle command line arguments.
+    parser = build_argparser()
+    args = parser.parse_args()
+
+    # set emoji
+    if not args.kawaii:
+        SPRUCE = "*"
+    elif sys.version_info[0] < 3:
+        SPRUCE = "\xF0\x9F\x8C\xB2"
+    else:
+        SPRUCE = "\N{evergreen tree}"
+
     # Indent is a space and a spruce emoji wide (so 3).
     indent_size = 3 * " "
     forest_length = (64 - len(report.heading)) / 2
@@ -1547,29 +1561,94 @@ def get_cruftmoji(percentage):
     Returns:
         An emoji string.
     """
-    level = [
-        # Master
-        ("🙅‍♀️ 🍻 🍕 "
-         "👽 🍕 🍻 "
-         "🙅‍♀️"),
-        # Snakes on a Plane
-        "🐍 🐍 ✈️",
-        # Furry Hat Pizza Party
-        "🍕 💂‍♀️ 🍕",
-        "👻", # Ghost
-        "💣", # The Bomb
-        "🐩 💨", # Poodle Fart
-        "💀", # Skull
-        "📼", # VHS Cassette
-        "🌵", # Cactus
-        "💩", # Smiling Poo
-        "💩 " * 3] # Smiling Poo (For 100%)
-    return str(level[int(percentage * 10)])
+
+    # emoji are not handled the same in python2 and 3 so we need a different kind
+    # of encoding for each.
+    if sys.version_info[0] < 3:
+        PIZZA = "\xf0\x9f\x8d\x95"
+        ALIEN = "\xf0\x9f\x91\xbe"
+        BEER = "\xf0\x9f\x8d\xbb"
+        CROSSED_ARMS = "\xf0\x9f\x99\x8f"
+        SNAKE = "\xf0\x9f\x90\x8d"
+        PLANE = "\xe2\x9c\x88\xef\xb8\x8f"
+        GUARD = "\xf0\x9f\x92\x82"
+        GHOST = "\xf0\x9f\x91\xbb"
+        BOMB = "\xf0\x9f\x92\xa3"
+        POODLE = "\xf0\x9f\x90\xa9"
+        WIND = "\xf0\x9f\x92\xa8"
+        SKULL = "\xf0\x9f\x92\x80"
+        VHS = "\xf0\x9f\x93\xbc"
+        CACTUS = "\xf0\x9f\x8c\xb5"
+        POO = "\xf0\x9f\x92\xa9"
+    else:
+        PIZZA = "\N{slice of pizza}"
+        ALIEN = "\N{alien monster}"
+        BEER = "\N{clinking beer mugs}"
+        CROSSED_ARMS = "\N{person with folded hands}"
+        SNAKE = "\N{snake}"
+        PLANE = "\N{airplane}"
+        GUARD = "\N{guardsman}"
+        GHOST = "\N{ghost}"
+        BOMB = "\N{bomb}"
+        POODLE = "\N{poodle}"
+        WIND = "\N{dash symbol}"
+        SKULL = "\N{skull}"
+        VHS = "\N{videocassette}"
+        CACTUS = "\N{cactus}"
+        POO = "\N{pile of poo}"
+
+
+    # Handle command line arguments.
+    parser = build_argparser()
+    args = parser.parse_args()
+
+    if not args.kawaii:
+        level = [
+            "Master",
+            "Snakes on a Plane",
+            "Furry Hat Pizza Party",
+            "Ghost",
+            "The Bomb",
+            "Farting Poodle",
+            "Skull",
+            "Video Cassette",
+            "Cactus",
+            "Smiling Poo",
+            "Three steaming piles of poo"]
+        return str(level[int(percentage * 10)])
+    else:
+        level = [
+            # Master
+            "%s %s %s %s %s %s %s" % (CROSSED_ARMS, BEER, PIZZA, 
+                ALIEN, PIZZA, BEER, CROSSED_ARMS),
+            # Snakes on a Plane
+            "%s %s %s" % (SNAKE, SNAKE, PLANE),
+            # Furry Hat Pizza Party
+            "%s %s %s" % (PIZZA, GUARD, PIZZA),
+            GHOST, # Ghost
+            BOMB, # The Bomb
+            "%s %s" % (POODLE, WIND), # Poodle Fart
+            SKULL, # Skull
+            VHS, # VHS Cassette
+            CACTUS, # Cactus
+            POO, # Smiling Poo
+            "%s %s %s" % (POO, POO, POO)] # Smiling Poo (For 100%)
+        if sys.version_info[0] < 3:
+            return level[int(percentage * 10)].decode("utf-8")
+        else:
+            return str(level[int(percentage * 10)])
 
 
 def get_cruft_strings(cruft):
     """Generate a list of strings for cruft reports."""
-    return ["{:.2%}".format(cruft), "Rank: %s" % get_cruftmoji(cruft)]
+    # Handle command line arguments.
+    parser = build_argparser()
+    args = parser.parse_args()
+
+    if args.kawaii:
+        return ["{:.2%}".format(cruft), "Rank: %s" % get_cruftmoji(cruft)]
+    else:
+        return ["{:.2%}".format(cruft)]
 
 
 def get_terminal_size():
@@ -1599,7 +1678,7 @@ def fix_version_counts(version_counts):
     return result
 
 
-def get_histogram_strings(data, padding=0, hist_char="🍕"):
+def get_histogram_strings(data, padding=0):
     """Generate a horizontal text histogram.
 
     Given a dictionary of items, generate a list of column aligned,
@@ -1618,6 +1697,16 @@ def get_histogram_strings(data, padding=0, hist_char="🍕"):
     Returns:
         List of strings ready to print.
     """
+    parser = build_argparser()
+    args = parser.parse_args()
+
+    if not args.kawaii:
+        hist_char = "||"
+    elif sys.version_info[0] < 3:
+        hist_char = "\xf0\x9f\x8d\x95"
+    else:
+        hist_char = "\N{slice of pizza}"
+
     max_key_width = max([len(key) for key in data])
     max_val_width = max([len(str(val)) for val in list(data.values())])
     max_value = max(data.values())
@@ -1778,11 +1867,13 @@ def build_argparser():
     phelp = ("Include a list of all objects and used objects in addition to "
              "unused objects in reports.")
     parser.add_argument("-v", "--verbose", help=phelp, action="store_true")
+    phelp = ("Show emoji in output and reports.")
+    parser.add_argument("--kawaii", help=phelp, action="store_true")
     phelp = ("For computer and mobile device reports, the number of "
              "days since the last check-in to consider device "
              "out-of-date.")
     parser.add_argument("--check_in_period", help=phelp)
-    phelp = ("Path to preference file. ")
+    phelp = ("Path to preference file.")
     parser.add_argument("--prefs", help=phelp)
     # General Reporting Args
     general_group = parser.add_argument_group("General Reporting Arguments")
@@ -1916,6 +2007,13 @@ def run_reports(args):
         requested_reports = [report for report in reports]
 
     # Build the reports
+    if not args.kawaii:
+        SPRUCE = "*"
+    elif sys.version_info[0] < 3:
+        SPRUCE = "\xF0\x9F\x8C\xB2"
+    else:
+        SPRUCE = "\N{evergreen tree}"
+
     results = []
     for report_name in requested_reports:
         report_dict = reports[report_name]
@@ -1939,7 +2037,7 @@ def run_reports(args):
     if args.ofile:
         indent(output_xml)
         tree = ET.ElementTree(output_xml)
-        #print ET.tostring(output_xml, encoding="UTF-8")
+        #print(ET.tostring(output_xml, encoding="UTF-8"))
         try:
             tree.write(os.path.expanduser(args.ofile), encoding="UTF-8",
                     xml_declaration=True)
