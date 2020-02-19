@@ -38,7 +38,7 @@ from Foundation import (NSData,
                         NSPropertyListXMLFormat_v1_0)
 # pylint: enable=no-name-in-module
 
-sys.path.insert(0, '/Library/Application Support/JSSImporter')
+sys.path.insert(0, '/Library/AutoPkg/JSSImporter')
 import requests
 import jss
 # Ensure that python-jss dependency is at minimum version
