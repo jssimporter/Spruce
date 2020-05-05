@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/local/autopkg/python
 # -*- coding: utf-8 -*-
 
 # Copyright (C) 2015-2018 Shea G Craig
@@ -23,7 +23,7 @@ import argparse
 from collections import Counter, namedtuple
 import datetime
 from distutils.version import StrictVersion
-from HTMLParser import HTMLParser
+from html.parser import HTMLParser
 import os
 import re
 import subprocess
@@ -31,16 +31,17 @@ import sys
 import textwrap
 from xml.etree import ElementTree as ET
 
-# pylint: disable=no-name-in-module
+# pylint: disable=import-error
 from Foundation import (NSData,
                         NSPropertyListSerialization,
                         NSPropertyListMutableContainersAndLeaves,
                         NSPropertyListXMLFormat_v1_0)
-# pylint: enable=no-name-in-module
 
-sys.path.insert(0, '/Library/Application Support/JSSImporter')
+sys.path.insert(0, '/Library/AutoPkg/JSSImporter')
 import requests
 import jss
+# pylint: enable=import-error
+
 # Ensure that python-jss dependency is at minimum version
 try:
     from jss import __version__ as PYTHON_JSS_VERSION
@@ -48,7 +49,7 @@ except ImportError:
     PYTHON_JSS_VERSION = "0.0.0"
 
 
-REQUIRED_PYTHON_JSS_VERSION = StrictVersion("2.0.0")
+REQUIRED_PYTHON_JSS_VERSION = StrictVersion("2.1.0")
 
 
 # Globals
@@ -59,10 +60,10 @@ PYTHON_JSS_PREFERENCES = (
 DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
                "\n\nUsing the various reporting options, you can see "
                "unused packages, printers, scripts,\ncomputer groups, "
-               "configuration profiles, mobile device groups, and "
-               "mobile\ndevice configuration profiles.\n\n"
-               "Reports are by default output to stdout, and may "
-               "optionally be output as\nXML for later use in "
+               "extension attributes, configuration profiles, mobile "
+               "device groups, and mobile\ndevice configuration "
+               "profiles.\n\nReports are by default output to stdout, "
+               "and may optionally be output as\nXML for later use in "
                "automated removal.\n\n"
                "Spruce uses configured AutoPkg/JSSImporter settings "
                "first. If those are\nmissing, Spruce falls back to "
@@ -74,7 +75,8 @@ DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
                "only those things which you wish to remove.\nFinally, "
                "pass this filename as an option to the --remove "
                "argument to\nremove the specified objects.")
-SPRUCE = "\xF0\x9F\x8C\xB2"
+
+
 __version__ = "2.0.1"
 
 
@@ -204,10 +206,12 @@ class JSSConnection(object):
         if not connection:
             connection = {"jss_prefs": jss.JSSPrefs()}
         cls._jss_prefs = connection
+        # pylint: disable=not-a-mapping
         if isinstance(connection, jss.JSSPrefs):
             cls._jss = jss.JSS(jss_prefs=cls._jss_prefs)
         else:
             cls._jss = jss.JSS(**cls._jss_prefs)
+        # pylint: enable=not-a-mapping
 
     @classmethod
     def get(cls):
@@ -566,54 +570,26 @@ def get_version_and_model_spread(devices):
     # Compare on the model identifier since it is an easy numerical
     # sort.
     strings = sorted(get_histogram_strings(model_counts, padding=8),
-                     cmp=model_identifier_cmp)
+                     key=model_compare)
     model_metadata = {"Hardware Model Histogram (%s)" % total: strings}
 
     return (version_metadata, model_metadata)
 
 
-def model_identifier_cmp(model_string_one, model_string_two):
-    """Compare model identifier strings.
+def model_compare(histogram_string):
+    """Return Model Identifier for use as key in sorted() function.
 
     Args:
-        model_one, model_two: Model string from "modle / model_identifier"
-            concatenation. The identifier string is made up of model
-            name, numeric major, minor version. e.g. the string
-            "iMac Intel (27-inch, Early 2013) / iMac13,3" is compared
-            by "iMac", then "13", then "3".
+        histogram_string: Histogram string comprising of Mac model, count and emoji e.g.
+            iMac Intel (21.5-inch, Late 2013) / iMac14,1 (2): 🍕🍕🍕🍕🍕🍕
 
     Returns:
-        -1 for less than, 0 for equal, or 1 for greater than.
+        Model Identifier e.g. iMac14,1
     """
-    # pylint: disable=invalid-name
-    VersionIdentifier = namedtuple("VersionIdentifier",
-                                   ("model", "major", "minor"))
-    # pylint: enable=invalid-name
-    model_string_one = model_string_one.split("/")[1].lstrip()
-    model_string_two = model_string_two.split("/")[1].lstrip()
-    pattern = re.compile(r"(?P<model>\D+)(?P<major>\d+),(?P<minor>\d+)")
-
-    search_one = re.search(pattern, model_string_one)
-    if search_one:
-        model_one = VersionIdentifier(*search_one.groups())
-    else:
-        model_one = VersionIdentifier(0, 0, 0)
-
-    search_two = re.search(pattern, model_string_two)
-    if search_two:
-        model_two = VersionIdentifier(*search_two.groups())
-    else:
-        model_two = VersionIdentifier(0, 0, 0)
-
-    if model_one.model == model_two.model:
-        if model_one.major == model_two.major:
-            result = cmp(int(model_one.minor), int(model_two.minor))
-        else:
-            result = cmp(int(model_one.major), int(model_two.major))
-    else:
-        result = cmp(model_one.model, model_two.model)
-
-    return result
+    pattern = re.compile(r"(\D+\d+,\d+)")
+    string_search = re.search(pattern, histogram_string)
+    if string_search:
+        return string_search.group(1)
 
 
 def build_computers_report(check_in_period, **kwargs):
@@ -698,7 +674,7 @@ def validate_check_in_period(check_in_period):
         try:
             check_in_period = int(check_in_period)
         except ValueError:
-            print "Incorrect check-in period given. Setting to 30."
+            print("Incorrect check-in period given. Setting to 30.")
             check_in_period = 30
 
     return check_in_period
@@ -885,10 +861,20 @@ def build_group_report(container_searches, groups_names, full_groups):
     # Build Empty Groups Report.
     empty_groups = get_empty_groups(full_groups)
     report.results.append(empty_groups)
+
     # Calculate empty cruftiness.
     empty_cruftiness = calculate_cruft(empty_groups, groups_names)
     report.metadata["Cruftiness"]["Empty Group Cruftiness"] = (
         get_cruft_strings(empty_cruftiness))
+
+    # Build No Criteria Groups Report.
+    no_criteria_groups = get_no_criteria_groups(full_groups)
+    report.results.append(no_criteria_groups)
+
+    # Calculate empty cruftiness.
+    no_criteria_cruftiness = calculate_cruft(no_criteria_groups, groups_names)
+    report.metadata["Cruftiness"]["No Criteria Group Cruftiness"] = (
+        get_cruft_strings(no_criteria_cruftiness))
 
     return report
 
@@ -913,8 +899,20 @@ def build_computer_groups_report(**kwargs):
     all_computer_groups = [(group.id, group.name) for group in group_list]
     full_groups = group_list.retrieve_all()
 
+    # all_policies = jss_connection.Policy().retrieve_all(
+    #     subset=[])
     all_policies = jss_connection.Policy(["general", "scope"]).retrieve_all()
-    all_configs = jss_connection.OSXConfigurationProfile(["general", "scope"]).retrieve_all()
+    # all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
+    #     subset=["general", "scope"])
+    all_configs = jss_connection.OSXConfigurationProfile(
+                                 ["general", "scope"]).retrieve_all()
+
+    # Account for fix in python-jss that isn't yet part of a release.
+    if hasattr(jss_connection, 'RestrictedSoftware'):
+        all_restricted_software = jss_connection.RestrictedSoftware().retrieve_all()
+    else:
+        all_restricted_software = jss_connection.RestrictedSfotware().retrieve_all()
+
     scope_xpath = "scope/computer_groups/computer_group"
     scope_exclusions_xpath = (
         "scope/exclusions/computer_groups/computer_group")
@@ -924,8 +922,10 @@ def build_computer_groups_report(**kwargs):
         [(all_policies, scope_xpath),
          (all_policies, scope_exclusions_xpath),
          (all_configs, scope_xpath),
-         (all_configs, scope_exclusions_xpath)],
-         all_computer_groups, full_groups)
+         (all_configs, scope_exclusions_xpath),
+         (all_restricted_software, scope_xpath),
+         (all_restricted_software, scope_exclusions_xpath)],
+        all_computer_groups, full_groups)
 
     report.heading = "Computer Group Usage Report"
     report.get_result_by_name("Used").description = (
@@ -942,6 +942,66 @@ def build_computer_groups_report(**kwargs):
         "the 'member_of' criterion.")
 
     return report
+
+
+def build_computer_ea_report(**kwargs):
+    """Report on computer extension attributes usage.
+
+    Looks for computer extension attributes not being used as criteria in any
+    smart groups. This does not mean they neccessarily are in-need-of-deletion.
+
+    Returns:
+        A Report object.
+    """
+    # All report functions support kwargs to support a unified interface,
+    # even if they don't use them.
+    _ = kwargs
+    jss_connection = JSSConnection.get()
+    all_eas = [(ea.id, ea.name) for ea in jss_connection.ComputerExtensionAttribute()]
+    if not all_eas:
+        return Report("Computer Extension Attribute", [],
+                      "Computer Extension Attribute Usage Report", {})
+    all_eas_result = Result(all_eas, False, "All Computer Extension Attributes")
+
+    # Build results for extension attributes which aren't used in criteria.
+    all_groups = jss_connection.ComputerGroup().retrieve_all()
+    used_criteria = []
+    for group in all_groups:
+        criteria_names = get_all_criteria_names(group)
+        for criteria_name in criteria_names:
+            if criteria_name not in used_criteria:
+                used_criteria.append(criteria_name)
+
+    unused_eas = [ea for ea in all_eas if ea[1] not in used_criteria]
+    desc = ("All extension attributes which are not used in computer group criteria.")
+    unused = Result(unused_eas, True,
+                    "Unused Computer Extension Attributes", desc)
+    unused_cruftiness = calculate_cruft(unused_eas, all_eas)
+
+    report = Report("Computer Extension Attribute",
+                    [unused, all_eas_result],
+                    "Computer Extension Attribute Report",
+                    {"Cruftiness": {}})
+    report.metadata["Cruftiness"]["Unused Computer Extension Attribute Cruftiness"] = (
+        get_cruft_strings(unused_cruftiness))
+
+    return report
+
+
+def get_all_criteria_names(group):
+    """Get the names of any extension attribute criteria in a group, or an empty set.
+
+    Args:
+        group: A jss.ComputerGroup object to search for extension attributes.
+
+    Returns:
+        A tuple of the extension attribute criteria in the provided group.
+        Returns an empty set if no extension attributes are present.
+    """
+    return (
+        criterion.findtext("name")
+        for criterion in group.findall("criteria/criterion") if
+        criterion.findtext("search_type") != "member of")
 
 
 def build_device_groups_report(**kwargs):
@@ -1363,6 +1423,30 @@ def get_empty_groups(full_groups):
                   "%s groups which have no members." % obj_type[1])
 
 
+def get_no_criteria_groups(full_groups):
+    """Return a Result with all smart groups that have no criteria.
+
+    Args:
+        full_groups: list of all groups from jss; i.e.
+            jss_connection.ComputerGroup().retrieve_all()
+
+    Returns:
+        Result object.
+    """
+    if isinstance(full_groups[0], jss.ComputerGroup):
+        obj_type = ("computers", "Computer")
+    elif isinstance(full_groups[0], jss.MobileDeviceGroup):
+        obj_type = ("mobile_devices", "Mobile Device")
+    else:
+        raise TypeError("Incorrect group type.")
+    groups_with_no_criteria = {(group.id, group.name) for group in full_groups
+                               if group.findtext("is_smart") == "true" and
+                               int(group.findtext('criteria/size')) == 0}
+    return Result(groups_with_no_criteria, True,
+                  "No Criteria %s Groups" % obj_type[1],
+                  "%s groups which have no criteria." % obj_type[1])
+
+
 def has_no_group_membership(device):
     """Test whether a computer or mobile device belongs to any groups.
 
@@ -1421,42 +1505,55 @@ def print_output(report, verbose=False):
         verbose: Bool, whether to print all results or just unused
             results.
     """
+
+    # Handle command line arguments.
+    parser = build_argparser()
+    args = parser.parse_args()
+
+    # set emoji
+    if not args.kawaii:
+        SPRUCE = "*"
+    elif sys.version_info[0] < 3:
+        SPRUCE = "\xF0\x9F\x8C\xB2"
+    else:
+        SPRUCE = "\N{evergreen tree}"
+
     # Indent is a space and a spruce emoji wide (so 3).
     indent_size = 3 * " "
     forest_length = (64 - len(report.heading)) / 2
-    print "%s  %s %s " % (SPRUCE, report.heading, SPRUCE * forest_length)
+    print("%s  %s %s " % (SPRUCE, report.heading, SPRUCE * int(forest_length)))
     if not report.results:
-        print "%s  No Results %s" % (SPRUCE, SPRUCE)
+        print("%s  No Results %s" % (SPRUCE, SPRUCE))
     else:
         for result in report.results:
             if not result.include_in_non_verbose and not verbose:
                 continue
             else:
-                print "\n%s  %s (%i)" % (
-                    SPRUCE, result.heading, len(result.results))
+                print("\n%s  %s (%i)" % (
+                    SPRUCE, result.heading, len(result.results)))
                 if result.description:
-                    print textwrap.fill(result.description,
+                    print(textwrap.fill(result.description,
                                         initial_indent=indent_size,
-                                        subsequent_indent=indent_size)
-                print
+                                        subsequent_indent=indent_size))
+                print("")
                 for line in sorted(result.results,
                                 key=lambda s: s[1].upper().strip()):
                     if line[1].strip() == "":
                         text = "(***NO NAME: ID is %s***)" % line[0]
                     else:
                         text = line[1]
-                    print "\t%s" % text
+                    print("\t%s" % text)
 
-        for heading, subsection in report.metadata.iteritems():
-            print "\n%s  %s %s" % (SPRUCE, heading, SPRUCE)
-            for subheading, strings in subsection.iteritems():
-                print "%s  %s" % (SPRUCE, subheading)
+        for heading, subsection in report.metadata.items():
+            print("\n%s  %s %s" % (SPRUCE, heading, SPRUCE))
+            for subheading, strings in subsection.items():
+                print("%s  %s" % (SPRUCE, subheading))
                 for line in strings:
-                    print "\t%s" % line
+                    print("\t%s" % line)
 
 
 def get_cruftmoji(percentage):
-    """Return one of 10 possible emojis depending on how crufty.
+    """Return one of 11 possible emojis depending on how crufty.
 
     Args:
         percentage: A float between 0 and 1.
@@ -1464,28 +1561,94 @@ def get_cruftmoji(percentage):
     Returns:
         An emoji string.
     """
-    level = [
-        # Master
-        ("\xf0\x9f\x99\x8f \xf0\x9f\x8d\xbb \xf0\x9f\x8d\x95 \xf0\x9f\x91\xbe"
-         "\xf0\x9f\x8d\x95 \xf0\x9f\x8d\xbb \xf0\x9f\x99\x8f"),
-        # Snakes on a Plane
-        "\xf0\x9f\x90\x8d \xf0\x9f\x90\x8d \xe2\x9c\x88\xef\xb8\x8f",
-        # Furry Hat Pizza Party
-        "\xf0\x9f\x8d\x95 \xf0\x9f\x92\x82 \xf0\x9f\x8d\x95",
-        "\xf0\x9f\x91\xbb", # Ghost
-        "\xf0\x9f\x92\xa3", # The Bomb
-        "\xf0\x9f\x90\xa9 \xf0\x9f\x92\xa8", # Poodle Fart
-        "\xf0\x9f\x92\x80", # Skull
-        "\xf0\x9f\x93\xbc", # VHS Cassette
-        "\xf0\x9f\x8c\xb5", # Cactus
-        "\xf0\x9f\x92\xa9", # Smiling Poo
-        "\xf0\x9f\x92\xa9 " * 3] # Smiling Poo (For 100%)
-    return level[int(percentage * 10)].decode("utf-8")
+
+    # emoji are not handled the same in python2 and 3 so we need a different kind
+    # of encoding for each.
+    if sys.version_info[0] < 3:
+        PIZZA = "\xf0\x9f\x8d\x95"
+        ALIEN = "\xf0\x9f\x91\xbe"
+        BEER = "\xf0\x9f\x8d\xbb"
+        CROSSED_ARMS = "\xf0\x9f\x99\x8f"
+        SNAKE = "\xf0\x9f\x90\x8d"
+        PLANE = "\xe2\x9c\x88\xef\xb8\x8f"
+        GUARD = "\xf0\x9f\x92\x82"
+        GHOST = "\xf0\x9f\x91\xbb"
+        BOMB = "\xf0\x9f\x92\xa3"
+        POODLE = "\xf0\x9f\x90\xa9"
+        WIND = "\xf0\x9f\x92\xa8"
+        SKULL = "\xf0\x9f\x92\x80"
+        VHS = "\xf0\x9f\x93\xbc"
+        CACTUS = "\xf0\x9f\x8c\xb5"
+        POO = "\xf0\x9f\x92\xa9"
+    else:
+        PIZZA = "\N{slice of pizza}"
+        ALIEN = "\N{alien monster}"
+        BEER = "\N{clinking beer mugs}"
+        CROSSED_ARMS = "\N{person with folded hands}"
+        SNAKE = "\N{snake}"
+        PLANE = "\N{airplane}"
+        GUARD = "\N{guardsman}"
+        GHOST = "\N{ghost}"
+        BOMB = "\N{bomb}"
+        POODLE = "\N{poodle}"
+        WIND = "\N{dash symbol}"
+        SKULL = "\N{skull}"
+        VHS = "\N{videocassette}"
+        CACTUS = "\N{cactus}"
+        POO = "\N{pile of poo}"
+
+
+    # Handle command line arguments.
+    parser = build_argparser()
+    args = parser.parse_args()
+
+    if not args.kawaii:
+        level = [
+            "Master",
+            "Snakes on a Plane",
+            "Furry Hat Pizza Party",
+            "Ghost",
+            "The Bomb",
+            "Farting Poodle",
+            "Skull",
+            "Video Cassette",
+            "Cactus",
+            "Smiling Poo",
+            "Three steaming piles of poo"]
+        return str(level[int(percentage * 10)])
+    else:
+        level = [
+            # Master
+            "%s %s %s %s %s %s %s" % (CROSSED_ARMS, BEER, PIZZA, 
+                ALIEN, PIZZA, BEER, CROSSED_ARMS),
+            # Snakes on a Plane
+            "%s %s %s" % (SNAKE, SNAKE, PLANE),
+            # Furry Hat Pizza Party
+            "%s %s %s" % (PIZZA, GUARD, PIZZA),
+            GHOST, # Ghost
+            BOMB, # The Bomb
+            "%s %s" % (POODLE, WIND), # Poodle Fart
+            SKULL, # Skull
+            VHS, # VHS Cassette
+            CACTUS, # Cactus
+            POO, # Smiling Poo
+            "%s %s %s" % (POO, POO, POO)] # Smiling Poo (For 100%)
+        if sys.version_info[0] < 3:
+            return level[int(percentage * 10)].decode("utf-8")
+        else:
+            return str(level[int(percentage * 10)])
 
 
 def get_cruft_strings(cruft):
     """Generate a list of strings for cruft reports."""
-    return ["{:.2%}".format(cruft), "Rank: %s" % get_cruftmoji(cruft)]
+    # Handle command line arguments.
+    parser = build_argparser()
+    args = parser.parse_args()
+
+    if args.kawaii:
+        return ["{:.2%}".format(cruft), "Rank: %s" % get_cruftmoji(cruft)]
+    else:
+        return ["{:.2%}".format(cruft)]
 
 
 def get_terminal_size():
@@ -1515,7 +1678,7 @@ def fix_version_counts(version_counts):
     return result
 
 
-def get_histogram_strings(data, padding=0, hist_char="\xf0\x9f\x8d\x95"):
+def get_histogram_strings(data, padding=0):
     """Generate a horizontal text histogram.
 
     Given a dictionary of items, generate a list of column aligned,
@@ -1534,22 +1697,37 @@ def get_histogram_strings(data, padding=0, hist_char="\xf0\x9f\x8d\x95"):
     Returns:
         List of strings ready to print.
     """
+    parser = build_argparser()
+    args = parser.parse_args()
+
+    if not args.kawaii:
+        hist_char = "||"
+    elif sys.version_info[0] < 3:
+        hist_char = "\xf0\x9f\x8d\x95"
+    else:
+        hist_char = "\N{slice of pizza}"
+
     max_key_width = max([len(key) for key in data])
-    max_val_width = max([len(str(val)) for val in data.values()])
+    max_val_width = max([len(str(val)) for val in list(data.values())])
     max_value = max(data.values())
     _, width = get_terminal_size()
     # Find the length we have left for the histogram bars.
     # Magic number 6 is the _():_ parts of the string, and the
     # guaranteed value of one that gets added.
-    histogram_width = width - padding - max_key_width - max_val_width - 6
+    # all divided by 3 to take account of the extra width of a pizza slice
+    histogram_width = (width - padding - max_key_width - max_val_width - 6) / 3
     result = []
-    for key, val in data.iteritems():
+    for key, val in data.items():
         preamble = "{:>{max_key}} ({:>{max_val}}): ".format(
             key, val, max_key=max_key_width, max_val=max_val_width)
         #percentage = float(val) / osx_clients
         percentage = float(val) / max_value
         histogram_bar = int(percentage * histogram_width + 1) * hist_char
-        result.append((preamble + histogram_bar).decode("utf-8"))
+        try:
+            result.append((preamble + histogram_bar).decode("utf-8"))
+        except AttributeError:
+            result.append(preamble + histogram_bar)
+
     return result
 
 
@@ -1570,10 +1748,10 @@ def get_out_of_date_strings(data):
     result = []
     if data:
         max_key_width = max([len(key) for key in data])
-        max_val1_width = max([len(str(val[0])) for val in data.values()])
-        max_val2_width = max([len(str(val[1])) for val in data.values()])
-        for key, val in data.iteritems():
-            output_string = (u"{:>{max_key}} JSS Version:{:>{max_val1}} App "
+        max_val1_width = max([len(str(val[0])) for val in list(data.values())])
+        max_val2_width = max([len(str(val[1])) for val in list(data.values())])
+        for key, val in data.items():
+            output_string = ("{:>{max_key}} JSS Version:{:>{max_val1}} App "
                              "Store Version: {:>{max_val2}}".format(
                                  key, val[0], val[1], max_key=max_key_width,
                                  max_val1=max_val1_width,
@@ -1602,7 +1780,8 @@ def add_output_metadata(root):
     spruce_version.text = __version__
     python_jss_version = ET.SubElement(root, "python-jssVersion")
     python_jss_version.text = jss.__version__
-    ET.SubElement(root, "Removals")
+    removals = ET.SubElement(root, "Removals")
+    removals.insert(0, ET.Comment("Move items to be removed here"))
 
 
 def add_report_output(root, report):
@@ -1628,10 +1807,10 @@ def add_report_output(root, report):
             item.attrib["id"] = str(id_)
 
     # Metadata
-    for metadata, val in report.metadata.iteritems():
+    for metadata, val in report.metadata.items():
         metadata_element = ET.SubElement(report_element, tagify(metadata))
         #subreport_element.attrib["length"] = str(len(result))
-        for submeta, submeta_val in val.iteritems():
+        for submeta, submeta_val in val.items():
             item = ET.SubElement(metadata_element, tagify(submeta))
             for line in submeta_val:
                 value = ET.SubElement(item, "Value")
@@ -1689,11 +1868,13 @@ def build_argparser():
     phelp = ("Include a list of all objects and used objects in addition to "
              "unused objects in reports.")
     parser.add_argument("-v", "--verbose", help=phelp, action="store_true")
+    phelp = ("Show cute emoji in output and reports.")
+    parser.add_argument("--kawaii", help=phelp, action="store_true")
     phelp = ("For computer and mobile device reports, the number of "
              "days since the last check-in to consider device "
              "out-of-date.")
     parser.add_argument("--check_in_period", help=phelp)
-    phelp = ("Path to preference file. ")
+    phelp = ("Path to preference file.")
     parser.add_argument("--prefs", help=phelp)
     # General Reporting Args
     general_group = parser.add_argument_group("General Reporting Arguments")
@@ -1711,6 +1892,9 @@ def build_argparser():
     phelp = "Generate unused computer-groups report (Static and Smart)."
     group.add_argument("-g", "--computer_groups", help=phelp,
                        action="store_true")
+    phelp = "Generate unused computer extension attribute report."
+    group.add_argument("-e", "--computer_extension_attributes",
+                       help=phelp, action="store_true")
     phelp = "Generate unused package report."
     group.add_argument("-p", "--packages", help=phelp, action="store_true")
     phelp = "Generate unused printer report."
@@ -1774,6 +1958,10 @@ def run_reports(args):
     reports["computer_groups"] = {"heading": "Computer Groups Report",
                                   "func": build_computer_groups_report,
                                   "report": None}
+    reports["computer_extension_attributes"] = {
+        "heading": "Computer Extension Attributes Report",
+        "func": build_computer_ea_report,
+        "report": None}
     reports["packages"] = {"heading": "Package Report",
                            "func": build_packages_report,
                            "report": None}
@@ -1820,11 +2008,18 @@ def run_reports(args):
         requested_reports = [report for report in reports]
 
     # Build the reports
+    if not args.kawaii:
+        SPRUCE = "*"
+    elif sys.version_info[0] < 3:
+        SPRUCE = "\xF0\x9F\x8C\xB2"
+    else:
+        SPRUCE = "\N{evergreen tree}"
+
     results = []
     for report_name in requested_reports:
         report_dict = reports[report_name]
-        print "%s  Building: %s... %s" % (SPRUCE, report_dict["heading"],
-                                          SPRUCE)
+        print("%s  Building: %s... %s" % (SPRUCE, report_dict["heading"],
+                                          SPRUCE))
         func = reports[report_name]["func"]
         results.append(func(**args_dict))
 
@@ -1835,7 +2030,7 @@ def run_reports(args):
     for report in results:
         # Print output to stdout.
         if not args.ofile:
-            print
+            print("")
             print_output(report, args.verbose)
         else:
             add_report_output(output_xml, report)
@@ -1843,13 +2038,13 @@ def run_reports(args):
     if args.ofile:
         indent(output_xml)
         tree = ET.ElementTree(output_xml)
-        #print ET.tostring(output_xml, encoding="UTF-8")
+        #print(ET.tostring(output_xml, encoding="UTF-8"))
         try:
             tree.write(os.path.expanduser(args.ofile), encoding="UTF-8",
                     xml_declaration=True)
-            print "%s  Wrote output to %s" % (SPRUCE, args.ofile)
+            print("%s  Wrote output to %s" % (SPRUCE, args.ofile))
         except IOError:
-            print "Error writing output to %s" % args.ofile
+            print("Error writing output to %s" % args.ofile)
             sys.exit(1)
 
 
@@ -1950,9 +2145,9 @@ def remove(removal_tree):
         # Try to delete the item.
         try:
             obj.delete()
-            print "%s object %s: %s deleted." % (item.tag, obj.id, obj.name)
+            print("%s object %s: %s deleted." % (item.tag, obj.id, obj.name))
         except jss.DeleteError as error:
-            print ("%s object %s with ID %s failed to delete.\n"
+            print("%s object %s with ID %s failed to delete.\n"
                    "Status Code:%s Error: %s" % (
                        item.tag, item.text, item.attrib["id"],
                        error.status_code, error.message))
@@ -1974,10 +2169,10 @@ def remove(removal_tree):
             filename = obj.findtext("filename", item.text)
             try:
                 jss_connection.distribution_points.delete(filename)
-                print "%s file %s deleted." % (item.tag, obj.name)
+                print("%s file %s deleted." % (item.tag, obj.name))
             except OSError as error:
-                print ("Unable to delete %s: %s with error: %s" %
-                       (item.tag, filename, error.message))
+                print("Unable to delete %s: %s with error: %s" %
+                       (item.tag, filename, error))
             except jss.GetError:
                 # User has a DistributionServer of some kind and
                 # A.) The db object has already been deleted above
@@ -1989,7 +2184,7 @@ def remove(removal_tree):
 
 def check_with_user():
     jss_connection = JSSConnection.get()
-    response = raw_input("Are you sure you want to continue deleting objects "
+    response = input("Are you sure you want to continue deleting objects "
                          "from %s? (Y or N): " % jss_connection.base_url)
     if response.strip().upper() in ["Y", "YES"]:
         result = True
@@ -2006,17 +2201,17 @@ def connect(args):
         if os.path.exists(os.path.expanduser(args.prefs)):
             user_supplied_prefs = Plist(args.prefs)
             connection = map_jssimporter_prefs(user_supplied_prefs)
-            print "Preferences used: %s" % args.prefs
+            print("Preferences used: %s" % args.prefs)
     # Otherwise, get AutoPkg configuration settings for JSSImporter,
     # and barring that, get python-jss settings.
     elif os.path.exists(os.path.expanduser(AUTOPKG_PREFERENCES)):
         autopkg_env = Plist(AUTOPKG_PREFERENCES)
         connection = map_jssimporter_prefs(autopkg_env)
-        print "Preferences used: %s" % AUTOPKG_PREFERENCES
+        print("Preferences used: %s" % AUTOPKG_PREFERENCES)
     else:
         try:
             connection = jss.JSSPrefs()
-            print "Preferences used: %s" % PYTHON_JSS_PREFERENCES
+            print("Preferences used: %s" % PYTHON_JSS_PREFERENCES)
         except jss.exceptions.JSSPrefsMissingFileError:
             sys.exit("No python-jss or AutoPKG/JSSImporter configuration "
                      "file!")
