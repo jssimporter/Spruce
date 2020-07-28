@@ -365,7 +365,7 @@ def build_container_report(containers_with_search_paths, jss_objects):
     used_object_sets = []
     for containers, search in containers_with_search_paths:
         search = "container.%s" % search.replace("/", ".")
-        for container in containers:
+        for container in containers:  # pylint: disable=unused-variable
             try:
                 obj = eval(search)
                 if obj is not None:
@@ -754,7 +754,7 @@ def build_packages_report(**kwargs):
         report = Report("Package", [], "Package Usage Report", {})
     else:
         policy_xpath = "package_configuration/packages/package"
-        patch_policy_xpath = "package_configuration/packages/package"
+        # patch_policy_xpath = "package_configuration/packages/package"
         config_xpath = "packages/package"
         report = build_container_report(
             [(all_policies, policy_xpath), (all_configs, config_xpath)], all_packages
