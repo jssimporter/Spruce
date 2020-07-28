@@ -32,14 +32,17 @@ import textwrap
 from xml.etree import ElementTree as ET
 
 # pylint: disable=import-error
-from Foundation import (NSData,
-                        NSPropertyListSerialization,
-                        NSPropertyListMutableContainersAndLeaves,
-                        NSPropertyListXMLFormat_v1_0)
+from Foundation import (
+    NSData,
+    NSPropertyListSerialization,
+    NSPropertyListMutableContainersAndLeaves,
+    NSPropertyListXMLFormat_v1_0,
+)
 
-sys.path.insert(0, '/Library/AutoPkg/JSSImporter')
+sys.path.insert(0, "/Library/AutoPkg/JSSImporter")
 import requests
 import jss
+
 # pylint: enable=import-error
 
 # Ensure that python-jss dependency is at minimum version
@@ -55,26 +58,27 @@ REQUIRED_PYTHON_JSS_VERSION = StrictVersion("2.1.0")
 # Globals
 # Edit these if you want to change their default values.
 AUTOPKG_PREFERENCES = "~/Library/Preferences/com.github.autopkg.plist"
-PYTHON_JSS_PREFERENCES = (
-    "~/Library/Preferences/com.github.sheagcraig.python-jss.plist")
-DESCRIPTION = ("Spruce is a tool to help you clean up your filthy JSS."
-               "\n\nUsing the various reporting options, you can see "
-               "unused packages, printers, scripts,\ncomputer groups, "
-               "extension attributes, configuration profiles, mobile "
-               "device groups, and mobile\ndevice configuration "
-               "profiles.\n\nReports are by default output to stdout, "
-               "and may optionally be output as\nXML for later use in "
-               "automated removal.\n\n"
-               "Spruce uses configured AutoPkg/JSSImporter settings "
-               "first. If those are\nmissing, Spruce falls back to "
-               "python-jss settings.\n\nThe recommended workflow is to "
-               "begin by running the reports you find\ninteresting. "
-               "After becoming familiar with the scale of unused "
-               "things,\nreports can be output with the -o/--ofile "
-               "option. This file can then be\nedited down to include "
-               "only those things which you wish to remove.\nFinally, "
-               "pass this filename as an option to the --remove "
-               "argument to\nremove the specified objects.")
+PYTHON_JSS_PREFERENCES = "~/Library/Preferences/com.github.sheagcraig.python-jss.plist"
+DESCRIPTION = (
+    "Spruce is a tool to help you clean up your filthy JSS."
+    "\n\nUsing the various reporting options, you can see "
+    "unused packages, printers, scripts,\ncomputer groups, "
+    "extension attributes, configuration profiles, mobile "
+    "device groups, and mobile\ndevice configuration "
+    "profiles.\n\nReports are by default output to stdout, "
+    "and may optionally be output as\nXML for later use in "
+    "automated removal.\n\n"
+    "Spruce uses configured AutoPkg/JSSImporter settings "
+    "first. If those are\nmissing, Spruce falls back to "
+    "python-jss settings.\n\nThe recommended workflow is to "
+    "begin by running the reports you find\ninteresting. "
+    "After becoming familiar with the scale of unused "
+    "things,\nreports can be output with the -o/--ofile "
+    "option. This file can then be\nedited down to include "
+    "only those things which you wish to remove.\nFinally, "
+    "pass this filename as an option to the --remove "
+    "argument to\nremove the specified objects."
+)
 
 
 __version__ = "2.0.1"
@@ -82,21 +86,25 @@ __version__ = "2.0.1"
 
 class Error(Exception):
     """Module base exception."""
+
     pass
 
 
 class PlistParseError(Error):
     """Error parsing a plist file."""
+
     pass
 
 
 class PlistDataError(Error):
     """Data can not be serialized to plist."""
+
     pass
 
 
 class PlistWriteError(Error):
     """Error writing a plist file."""
+
     pass
 
 
@@ -125,13 +133,16 @@ class Plist(dict):
             PlistParseError: Error in reading plist file.
         """
         # pylint: disable=unused-variable
-        info, pformat, error = (
-            NSPropertyListSerialization.propertyListWithData_options_format_error_(
-                NSData.dataWithContentsOfFile_(os.path.expanduser(path)),
-                NSPropertyListMutableContainersAndLeaves,
-                None,
-                None
-            ))
+        (
+            info,
+            pformat,
+            error,
+        ) = NSPropertyListSerialization.propertyListWithData_options_format_error_(
+            NSData.dataWithContentsOfFile_(os.path.expanduser(path)),
+            NSPropertyListMutableContainersAndLeaves,
+            None,
+            None,
+        )
         # pylint: enable=unused-variable
         if info is None:
             if error is None:
@@ -150,18 +161,18 @@ class Plist(dict):
             PlistDataError: There was an error in the data.
             PlistWriteError: Plist could not be written.
         """
-        plist_data, error = NSPropertyListSerialization.dataWithPropertyList_format_options_error_(
-            self,
-            NSPropertyListXMLFormat_v1_0,
-            0,
-            None)
+        (
+            plist_data,
+            error,
+        ) = NSPropertyListSerialization.dataWithPropertyList_format_options_error_(
+            self, NSPropertyListXMLFormat_v1_0, 0, None
+        )
         if plist_data is None:
             if error is None:
                 error = "Failed to serialize data to plist."
             raise PlistDataError(error)
         else:
-            if not plist_data.writeToFile_atomically_(
-                    os.path.expanduser(path), True):
+            if not plist_data.writeToFile_atomically_(os.path.expanduser(path), True):
                 raise PlistWriteError("Failed writing data to %s" % path)
 
     def new_plist(self):
@@ -172,6 +183,7 @@ class Plist(dict):
 
 class JSSConnection(object):
     """Class for providing a single JSS connection."""
+
     _jss_prefs = None
     _jss = None
 
@@ -302,8 +314,11 @@ class AppStoreVersionParser(HTMLParser):
         """Override handling of tags to find version metadata."""
         # <span itemprop="softwareVersion">3.0.3
         attrs_dict = dict(attrs)
-        if (tag == "span" and "itemprop" in attrs_dict and
-                attrs_dict["itemprop"] == "softwareVersion"):
+        if (
+            tag == "span"
+            and "itemprop" in attrs_dict
+            and attrs_dict["itemprop"] == "softwareVersion"
+        ):
             self.in_version_span = True
 
     def handle_data(self, data):
@@ -322,7 +337,7 @@ def map_jssimporter_prefs(prefs):
     connection["suppress_warnings"] = prefs.get("JSS_SUPPRESS_WARNINGS", True)
     connection["jss_migrated"] = prefs.get("JSS_MIGRATED", True)
     connection["repo_prefs"] = prefs.get("JSS_REPOS")
-    print('JSS: {}'.format(connection["url"]))
+    print("JSS: {}".format(connection["url"]))
 
     return connection
 
@@ -349,13 +364,12 @@ def build_container_report(containers_with_search_paths, jss_objects):
     """
     used_object_sets = []
     for containers, search in containers_with_search_paths:
-        search = "container.%s" % search.replace('/',".")
+        search = "container.%s" % search.replace("/", ".")
         for container in containers:
             try:
                 obj = eval(search)
                 if obj is not None:
-                    used_object_sets.append(
-                        {(obj.id.text, obj.name.text)})
+                    used_object_sets.append({(obj.id.text, obj.name.text)})
             except AttributeError:
                 pass
 
@@ -367,21 +381,23 @@ def build_container_report(containers_with_search_paths, jss_objects):
     unused = set(jss_objects).difference(used)
 
     # Use the xpath's second to last part to determine object type.
-    obj_type = containers_with_search_paths[0][1].split(
-        "/")[-1].replace("_", " ").title()
+    obj_type = (
+        containers_with_search_paths[0][1].split("/")[-1].replace("_", " ").title()
+    )
 
-    all_result = Result(jss_objects, False, "All", "All %ss on the JSS." %
-                        obj_type)
+    all_result = Result(jss_objects, False, "All", "All %ss on the JSS." % obj_type)
     used_result = Result(used, False, "Used")
     unused_result = Result(unused, True, "Unused")
-    report = Report(obj_type, [all_result, used_result, unused_result],
-                    "", {"Cruftiness": {}})
-    cruftiness = calculate_cruft(report.get_result_by_name("Unused").results,
-                                 report.get_result_by_name("All").results)
+    report = Report(
+        obj_type, [all_result, used_result, unused_result], "", {"Cruftiness": {}}
+    )
+    cruftiness = calculate_cruft(
+        report.get_result_by_name("Unused").results,
+        report.get_result_by_name("All").results,
+    )
     cruft_strings = get_cruft_strings(cruftiness)
 
-    report.metadata["Cruftiness"] = {"Unscoped %s Cruftiness" % obj_type:
-                                     cruft_strings}
+    report.metadata["Cruftiness"] = {"Unscoped %s Cruftiness" % obj_type: cruft_strings}
 
     return report
 
@@ -409,24 +425,27 @@ def build_device_report(check_in_period, devices):
     """
     check_in_period = validate_check_in_period(check_in_period)
     device_name = device_type(devices)
-    report = Report(device_name, [], "%s Report" % device_name,
-                    {"Cruftiness": {}})
+    report = Report(device_name, [], "%s Report" % device_name, {"Cruftiness": {}})
 
     # Out of Date results.
     out_of_date_results = get_out_of_date_devices(check_in_period, devices)
     report.results.append(out_of_date_results[0])
     report.metadata["Cruftiness"][
-        "%ss Not Checked In Cruftiness" % device_name] = out_of_date_results[1]
+        "%ss Not Checked In Cruftiness" % device_name
+    ] = out_of_date_results[1]
 
     # Orphaned device results.
     orphaned_device_results = get_orphaned_devices(devices)
     report.results.append(orphaned_device_results[0])
-    report.metadata["Cruftiness"]["%ss With no Group Membership Cruftiness" %
-                                  device_name] = orphaned_device_results[1]
+    report.metadata["Cruftiness"][
+        "%ss With no Group Membership Cruftiness" % device_name
+    ] = orphaned_device_results[1]
 
     # Version and model results.
-    report.metadata["Version Spread"], report.metadata[
-        "Hardware Model Spread"] = get_version_and_model_spread(devices)
+    (
+        report.metadata["Version Spread"],
+        report.metadata["Hardware Model Spread"],
+    ) = get_version_and_model_spread(devices)
 
     # All Devices
     all_devices = [(device.id, device.name) for device in devices]
@@ -463,20 +482,19 @@ def get_out_of_date_devices(check_in_period, devices):
         # Fix incorrectly formatted Mobile Device times.
         if last_contact and isinstance(device, jss.MobileDevice):
             last_contact = hour_pad(last_contact)
-        if not last_contact or (strptime(last_contact, fmt_string) <
-                                out_of_date):
+        if not last_contact or (strptime(last_contact, fmt_string) < out_of_date):
             out_of_date_devices.append((device.id, device.name))
 
-    description = ("This report collects %ss which have not checked in for "
-                   "more than %i days (%s) based on their %s property." % (
-                       device_name, check_in_period, out_of_date,
-                       check_in.split("/")[1]))
+    description = (
+        "This report collects %ss which have not checked in for "
+        "more than %i days (%s) based on their %s property."
+        % (device_name, check_in_period, out_of_date, check_in.split("/")[1])
+    )
     out_of_date_report = Result(
-        out_of_date_devices, True, "Out of Date %ss" % device_name,
-        description)
+        out_of_date_devices, True, "Out of Date %ss" % device_name, description
+    )
 
-    out_of_date_cruftiness = calculate_cruft(
-        out_of_date_report.results, devices)
+    out_of_date_cruftiness = calculate_cruft(out_of_date_report.results, devices)
     cruftiness = get_cruft_strings(out_of_date_cruftiness)
 
     return (out_of_date_report, cruftiness)
@@ -495,13 +513,21 @@ def get_orphaned_devices(devices):
         Tuple of (Result object, cruftiness)
     """
     device_name = device_type(devices)
-    orphaned_devices = [(device.id, device.name) for device in devices if
-                        has_no_group_membership(device)]
-    description = ("This report collects %ss which do not belong to any "
-                   "static or smart groups." % device_name)
-    orphan_report = Result(orphaned_devices, True,
-                           "%ss With no Group Membership" % device_name,
-                           description)
+    orphaned_devices = [
+        (device.id, device.name)
+        for device in devices
+        if has_no_group_membership(device)
+    ]
+    description = (
+        "This report collects %ss which do not belong to any "
+        "static or smart groups." % device_name
+    )
+    orphan_report = Result(
+        orphaned_devices,
+        True,
+        "%ss With no Group Membership" % device_name,
+        description,
+    )
 
     orphan_cruftiness = calculate_cruft(orphan_report.results, devices)
     cruftiness = get_cruft_strings(orphan_cruftiness)
@@ -548,12 +574,16 @@ def get_version_and_model_spread(devices):
 
     for device in devices:
         if device.findtext(os_type_search) == os_type:
-            versions.append(device.findtext(os_version_search) or
-                            "No Version Inventoried")
-            models.append("%s / %s" % (
-                device.findtext(model_search) or "No Model",
-                device.findtext(model_identifier_search,) or
-                "No Model Identifier"))
+            versions.append(
+                device.findtext(os_version_search) or "No Version Inventoried"
+            )
+            models.append(
+                "%s / %s"
+                % (
+                    device.findtext(model_search) or "No Model",
+                    device.findtext(model_identifier_search,) or "No Model Identifier",
+                )
+            )
     version_counts = Counter(versions)
     # Standardize version number format.
     version_counts = fix_version_counts(version_counts)
@@ -563,14 +593,12 @@ def get_version_and_model_spread(devices):
 
     # Report on OS version spread
     strings = sorted(get_histogram_strings(version_counts, padding=8))
-    version_metadata = {"%s Version Histogram (%s)" % (os_type, total):
-                        strings}
+    version_metadata = {"%s Version Histogram (%s)" % (os_type, total): strings}
 
     # Report on Model Spread
     # Compare on the model identifier since it is an easy numerical
     # sort.
-    strings = sorted(get_histogram_strings(model_counts, padding=8),
-                     key=model_compare)
+    strings = sorted(get_histogram_strings(model_counts, padding=8), key=model_compare)
     model_metadata = {"Hardware Model Histogram (%s)" % total: strings}
 
     return (version_metadata, model_metadata)
@@ -614,7 +642,9 @@ def build_computers_report(check_in_period, **kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
-    all_computers = jss_connection.Computer(["general", "hardware", "groups_accounts"]).retrieve_all()
+    all_computers = jss_connection.Computer(
+        ["general", "hardware", "groups_accounts"]
+    ).retrieve_all()
 
     if all_computers:
         report = build_device_report(check_in_period, all_computers)
@@ -648,7 +678,7 @@ def build_mobile_devices_report(check_in_period, **kwargs):
     jss_connection = JSSConnection.get()
     mobile_devices = jss_connection.MobileDevice(
         ["general", "mobile_device_groups", "mobiledevicegroups"]
-        ).retrieve_all()
+    ).retrieve_all()
 
     if mobile_devices:
         report = build_device_report(check_in_period, mobile_devices)
@@ -704,7 +734,7 @@ def hour_pad(datetime_string):
 def build_packages_report(**kwargs):
     """Report on package usage.
 
-    Looks for packages which are not installed by any policies or
+    Looks for packages which are not installed by any policies, patch policies or
     computer configurations.
 
     Returns:
@@ -717,23 +747,25 @@ def build_packages_report(**kwargs):
 
     all_policies = jss_connection.Policy(
         ["general", "package_configuration", "packages"]
-        ).retrieve_all()
+    ).retrieve_all()
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
     all_packages = [(pkg.id, pkg.name) for pkg in jss_connection.Package()]
     if not all_packages:
         report = Report("Package", [], "Package Usage Report", {})
     else:
         policy_xpath = "package_configuration/packages/package"
+        patch_policy_xpath = "package_configuration/packages/package"
         config_xpath = "packages/package"
         report = build_container_report(
-            [(all_policies, policy_xpath), (all_configs, config_xpath)],
-            all_packages)
+            [(all_policies, policy_xpath), (all_configs, config_xpath)], all_packages
+        )
         report.get_result_by_name("Used").description = (
-            "All packages which are installed by policies or imaging "
-            "configurations.")
+            "All packages which are installed by policies or imaging " "configurations."
+        )
         report.get_result_by_name("Unused").description = (
             "All packages which are not installed by any policies or imaging "
-            "configurations.")
+            "configurations."
+        )
 
         report.heading = "Package Usage Report"
 
@@ -763,14 +795,15 @@ def build_printers_report(**kwargs):
         policy_xpath = "printers/printer"
         config_xpath = "printers/printer"
         report = build_container_report(
-            [(all_policies, policy_xpath), (all_configs, config_xpath)],
-            all_printers)
+            [(all_policies, policy_xpath), (all_configs, config_xpath)], all_printers
+        )
         report.get_result_by_name("Used").description = (
-            "All printers which are installed by policies or imaging "
-            "configurations.")
+            "All printers which are installed by policies or imaging " "configurations."
+        )
         report.get_result_by_name("Unused").description = (
             "All printers which are not installed by any policies or imaging "
-            "configurations.")
+            "configurations."
+        )
 
         report.heading = "Printer Usage Report"
 
@@ -792,22 +825,22 @@ def build_scripts_report(**kwargs):
     jss_connection = JSSConnection.get()
     all_policies = jss_connection.Policy(["general", "scripts"]).retrieve_all()
     all_configs = jss_connection.ComputerConfiguration().retrieve_all()
-    all_scripts = [(script.id, script.name) for script in
-                   jss_connection.Script()]
+    all_scripts = [(script.id, script.name) for script in jss_connection.Script()]
     if not all_scripts:
         report = Report("Script", [], "Script Usage Report", {})
     else:
         policy_xpath = "scripts/script"
         config_xpath = "scripts/script"
         report = build_container_report(
-            [(all_policies, policy_xpath), (all_configs, config_xpath)],
-            all_scripts)
+            [(all_policies, policy_xpath), (all_configs, config_xpath)], all_scripts
+        )
         report.get_result_by_name("Used").description = (
-            "All scripts which are installed by policies or imaging "
-            "configurations.")
+            "All scripts which are installed by policies or imaging " "configurations."
+        )
         report.get_result_by_name("Unused").description = (
             "All scripts which are not installed by any policies or imaging "
-            "configurations.")
+            "configurations."
+        )
 
         report.heading = "Script Usage Report"
 
@@ -839,10 +872,8 @@ def build_group_report(container_searches, groups_names, full_groups):
     # For convenience, pull out unused and used sets.
     unused_groups = report.get_result_by_name("Unused").results
     used_groups = report.get_result_by_name("Used").results
-    used_full_group_objects = get_full_groups_from_names(used_groups,
-                                                         full_groups)
-    full_used_nested_groups = get_nested_groups(used_full_group_objects,
-                                                full_groups)
+    used_full_group_objects = get_full_groups_from_names(used_groups, full_groups)
+    full_used_nested_groups = get_nested_groups(used_full_group_objects, full_groups)
     used_nested_groups = get_names_from_full_objects(full_used_nested_groups)
 
     # Remove the nested groups from the unused list and add to the used.
@@ -855,8 +886,8 @@ def build_group_report(container_searches, groups_names, full_groups):
     unused_cruftiness = calculate_cruft(unused_groups, groups_names)
     obj_type = device_type(full_groups)
     report.metadata["Cruftiness"][
-        "Unscoped %s Cruftiness" % obj_type] = (
-            get_cruft_strings(unused_cruftiness))
+        "Unscoped %s Cruftiness" % obj_type
+    ] = get_cruft_strings(unused_cruftiness)
 
     # Build Empty Groups Report.
     empty_groups = get_empty_groups(full_groups)
@@ -864,8 +895,9 @@ def build_group_report(container_searches, groups_names, full_groups):
 
     # Calculate empty cruftiness.
     empty_cruftiness = calculate_cruft(empty_groups, groups_names)
-    report.metadata["Cruftiness"]["Empty Group Cruftiness"] = (
-        get_cruft_strings(empty_cruftiness))
+    report.metadata["Cruftiness"]["Empty Group Cruftiness"] = get_cruft_strings(
+        empty_cruftiness
+    )
 
     # Build No Criteria Groups Report.
     no_criteria_groups = get_no_criteria_groups(full_groups)
@@ -873,8 +905,9 @@ def build_group_report(container_searches, groups_names, full_groups):
 
     # Calculate empty cruftiness.
     no_criteria_cruftiness = calculate_cruft(no_criteria_groups, groups_names)
-    report.metadata["Cruftiness"]["No Criteria Group Cruftiness"] = (
-        get_cruft_strings(no_criteria_cruftiness))
+    report.metadata["Cruftiness"]["No Criteria Group Cruftiness"] = get_cruft_strings(
+        no_criteria_cruftiness
+    )
 
     return report
 
@@ -905,27 +938,31 @@ def build_computer_groups_report(**kwargs):
     # all_configs = jss_connection.OSXConfigurationProfile().retrieve_all(
     #     subset=["general", "scope"])
     all_configs = jss_connection.OSXConfigurationProfile(
-                                 ["general", "scope"]).retrieve_all()
+        ["general", "scope"]
+    ).retrieve_all()
 
     # Account for fix in python-jss that isn't yet part of a release.
-    if hasattr(jss_connection, 'RestrictedSoftware'):
+    if hasattr(jss_connection, "RestrictedSoftware"):
         all_restricted_software = jss_connection.RestrictedSoftware().retrieve_all()
     else:
         all_restricted_software = jss_connection.RestrictedSfotware().retrieve_all()
 
     scope_xpath = "scope/computer_groups/computer_group"
-    scope_exclusions_xpath = (
-        "scope/exclusions/computer_groups/computer_group")
+    scope_exclusions_xpath = "scope/exclusions/computer_groups/computer_group"
 
     # Build results for groups which aren't scoped.
     report = build_group_report(
-        [(all_policies, scope_xpath),
-         (all_policies, scope_exclusions_xpath),
-         (all_configs, scope_xpath),
-         (all_configs, scope_exclusions_xpath),
-         (all_restricted_software, scope_xpath),
-         (all_restricted_software, scope_exclusions_xpath)],
-        all_computer_groups, full_groups)
+        [
+            (all_policies, scope_xpath),
+            (all_policies, scope_exclusions_xpath),
+            (all_configs, scope_xpath),
+            (all_configs, scope_exclusions_xpath),
+            (all_restricted_software, scope_xpath),
+            (all_restricted_software, scope_exclusions_xpath),
+        ],
+        all_computer_groups,
+        full_groups,
+    )
 
     report.heading = "Computer Group Usage Report"
     report.get_result_by_name("Used").description = (
@@ -933,13 +970,15 @@ def build_computer_groups_report(**kwargs):
         "considered to be in-use if they are designated in the scope or the "
         "exclusions of a policy or a configuration profile. This report "
         "includes all groups which are nested inside of smart groups using "
-        "the 'member_of' criterion.")
+        "the 'member_of' criterion."
+    )
     report.get_result_by_name("Unused").description = (
         "All groups which do not participate in scoping. Computer groups are "
         "considered to be in-use if they are designated in the scope or the "
         "exclusions of a policy or a configuration profile. This report "
         "includes all groups which are nested inside of smart groups using "
-        "the 'member_of' criterion.")
+        "the 'member_of' criterion."
+    )
 
     return report
 
@@ -959,8 +998,12 @@ def build_computer_ea_report(**kwargs):
     jss_connection = JSSConnection.get()
     all_eas = [(ea.id, ea.name) for ea in jss_connection.ComputerExtensionAttribute()]
     if not all_eas:
-        return Report("Computer Extension Attribute", [],
-                      "Computer Extension Attribute Usage Report", {})
+        return Report(
+            "Computer Extension Attribute",
+            [],
+            "Computer Extension Attribute Usage Report",
+            {},
+        )
     all_eas_result = Result(all_eas, False, "All Computer Extension Attributes")
 
     # Build results for extension attributes which aren't used in criteria.
@@ -973,17 +1016,19 @@ def build_computer_ea_report(**kwargs):
                 used_criteria.append(criteria_name)
 
     unused_eas = [ea for ea in all_eas if ea[1] not in used_criteria]
-    desc = ("All extension attributes which are not used in computer group criteria.")
-    unused = Result(unused_eas, True,
-                    "Unused Computer Extension Attributes", desc)
+    desc = "All extension attributes which are not used in computer group criteria."
+    unused = Result(unused_eas, True, "Unused Computer Extension Attributes", desc)
     unused_cruftiness = calculate_cruft(unused_eas, all_eas)
 
-    report = Report("Computer Extension Attribute",
-                    [unused, all_eas_result],
-                    "Computer Extension Attribute Report",
-                    {"Cruftiness": {}})
-    report.metadata["Cruftiness"]["Unused Computer Extension Attribute Cruftiness"] = (
-        get_cruft_strings(unused_cruftiness))
+    report = Report(
+        "Computer Extension Attribute",
+        [unused, all_eas_result],
+        "Computer Extension Attribute Report",
+        {"Cruftiness": {}},
+    )
+    report.metadata["Cruftiness"][
+        "Unused Computer Extension Attribute Cruftiness"
+    ] = get_cruft_strings(unused_cruftiness)
 
     return report
 
@@ -1000,8 +1045,9 @@ def get_all_criteria_names(group):
     """
     return (
         criterion.findtext("name")
-        for criterion in group.findall("criteria/criterion") if
-        criterion.findtext("search_type") != "member of")
+        for criterion in group.findall("criteria/criterion")
+        if criterion.findtext("search_type") != "member of"
+    )
 
 
 def build_device_groups_report(**kwargs):
@@ -1019,49 +1065,54 @@ def build_device_groups_report(**kwargs):
     jss_connection = JSSConnection.get()
     group_list = jss_connection.MobileDeviceGroup()
     if not group_list:
-        return Report("MobileDeviceGroup", [], "Mobile Device Group Report",
-                      {})
+        return Report("MobileDeviceGroup", [], "Mobile Device Group Report", {})
 
     all_mobile_device_groups = [(group.id, group.name) for group in group_list]
     full_groups = group_list.retrieve_all()
 
-    all_configs = (
-        jss_connection.MobileDeviceConfigurationProfile(["general", "scope"]).retrieve_all()
-        )
-    all_provisioning_profiles = (
-        jss_connection.MobileDeviceProvisioningProfile(["general", "scope"]).retrieve_all()
-        )
-    all_apps = (
-        jss_connection.MobileDeviceApplication(["general", "scope"]).retrieve_all()
-        )
-    all_ebooks = (
-        jss_connection.EBook(["general", "scope"]).retrieve_all()
-        )
+    all_configs = jss_connection.MobileDeviceConfigurationProfile(
+        ["general", "scope"]
+    ).retrieve_all()
+    all_provisioning_profiles = jss_connection.MobileDeviceProvisioningProfile(
+        ["general", "scope"]
+    ).retrieve_all()
+    all_apps = jss_connection.MobileDeviceApplication(
+        ["general", "scope"]
+    ).retrieve_all()
+    all_ebooks = jss_connection.EBook(["general", "scope"]).retrieve_all()
     xpath = "scope/mobile_device_groups/mobile_device_group"
-    exclusion_xpath = (
-        "scope/exclusions/mobile_device_groups/mobile_device_group")
+    exclusion_xpath = "scope/exclusions/mobile_device_groups/mobile_device_group"
 
     # Build results for groups which aren't scoped.
     report = build_group_report(
-        [(all_configs, xpath), (all_configs, exclusion_xpath),
-         (all_provisioning_profiles, xpath),
-         (all_provisioning_profiles, exclusion_xpath),
-         (all_apps, xpath), (all_apps, exclusion_xpath),
-         (all_ebooks, xpath), (all_ebooks, exclusion_xpath)],
-        all_mobile_device_groups, full_groups)
+        [
+            (all_configs, xpath),
+            (all_configs, exclusion_xpath),
+            (all_provisioning_profiles, xpath),
+            (all_provisioning_profiles, exclusion_xpath),
+            (all_apps, xpath),
+            (all_apps, exclusion_xpath),
+            (all_ebooks, xpath),
+            (all_ebooks, exclusion_xpath),
+        ],
+        all_mobile_device_groups,
+        full_groups,
+    )
     report.heading = "Mobile Device Group Usage Report"
     report.get_result_by_name("Used").description = (
         "All groups which participate in scoping. Mobile device groups are "
         "considered to be in-use if they are designated in the scope or the "
         "exclusions of a configuration profile, provisioning profile, app, "
         "or ebook. This report includes all groups which are nested inside "
-        "of smart groups using the 'member_of' criterion.")
+        "of smart groups using the 'member_of' criterion."
+    )
     report.get_result_by_name("Unused").description = (
         "All groups which do not participate in scoping. Mobile device groups "
         "are considered to be in-use if they are designated in the scope or "
         "the exclusions of a configuration profile, provisioning profile, "
         "app, or ebook. This report includes all groups which are nested "
-        "inside of smart groups using the 'member_of' criterion.")
+        "inside of smart groups using the 'member_of' criterion."
+    )
 
     return report
 
@@ -1082,34 +1133,51 @@ def build_policies_report(**kwargs):
     if not all_policies:
         return Report("Policy", [], "Policy Usage Report", {})
 
-    all_policies_result = Result([(policy.id, policy.name) for policy in
-                                  all_policies], False, "All Policies")
-    unscoped_policies = [(policy.id, policy.name) for policy in all_policies if
-                         policy.findtext("scope/all_computers") == "false" and
-                         not policy.findall("scope/computers/computer") and
-                         not policy.findall(
-                             "scope/computer_groups/computer_group") and
-                         not policy.findall("scope/buildings/building") and
-                         not policy.findall("scope/departments/department")]
-    desc = ("Policies which are not scoped to any computers, computer groups, "
-            "buildings, departments, or to the all_computers meta-scope.")
+    all_policies_result = Result(
+        [(policy.id, policy.name) for policy in all_policies], False, "All Policies"
+    )
+    unscoped_policies = [
+        (policy.id, policy.name)
+        for policy in all_policies
+        if policy.findtext("scope/all_computers") == "false"
+        and not policy.findall("scope/computers/computer")
+        and not policy.findall("scope/computer_groups/computer_group")
+        and not policy.findall("scope/buildings/building")
+        and not policy.findall("scope/departments/department")
+    ]
+    desc = (
+        "Policies which are not scoped to any computers, computer groups, "
+        "buildings, departments, or to the all_computers meta-scope."
+    )
     unscoped = Result(unscoped_policies, True, "Policies not Scoped", desc)
     unscoped_cruftiness = calculate_cruft(unscoped_policies, all_policies)
 
-    disabled_policies = [(policy.id, policy.name) for policy in all_policies if
-                         policy.findtext("general/enabled") == "false"]
-    disabled = Result(disabled_policies, True, "Disabled Policies",
-                      "Policies which are currently disabled "
-                      "(Policy/General/Enabled toggle).")
+    disabled_policies = [
+        (policy.id, policy.name)
+        for policy in all_policies
+        if policy.findtext("general/enabled") == "false"
+    ]
+    disabled = Result(
+        disabled_policies,
+        True,
+        "Disabled Policies",
+        "Policies which are currently disabled " "(Policy/General/Enabled toggle).",
+    )
     disabled_cruftiness = calculate_cruft(disabled_policies, all_policies)
 
-    report = Report("Policy", [unscoped, disabled, all_policies_result],
-                    "Policy Report", {"Cruftiness": {}})
+    report = Report(
+        "Policy",
+        [unscoped, disabled, all_policies_result],
+        "Policy Report",
+        {"Cruftiness": {}},
+    )
 
-    report.metadata["Cruftiness"]["Unscoped Policy Cruftiness"] = (
-        get_cruft_strings(unscoped_cruftiness))
-    report.metadata["Cruftiness"]["Disabled Policy Cruftiness"] = (
-        get_cruft_strings(disabled_cruftiness))
+    report.metadata["Cruftiness"]["Unscoped Policy Cruftiness"] = get_cruft_strings(
+        unscoped_cruftiness
+    )
+    report.metadata["Cruftiness"]["Disabled Policy Cruftiness"] = get_cruft_strings(
+        disabled_cruftiness
+    )
 
     return report
 
@@ -1126,36 +1194,50 @@ def build_config_profiles_report(**kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
-    all_configs = jss_connection.OSXConfigurationProfile(["general", "scope"]).retrieve_all()
+    all_configs = jss_connection.OSXConfigurationProfile(
+        ["general", "scope"]
+    ).retrieve_all()
     if not all_configs:
-        return Report("Computer Configuration Profile", [],
-                      "Computer Configuration Profile Report", {})
+        return Report(
+            "Computer Configuration Profile",
+            [],
+            "Computer Configuration Profile Report",
+            {},
+        )
 
-    all_configs_result = Result([(config.id, config.name) for config in
-                                 all_configs], False, "All OSX Configuration "
-                                "Profiles")
+    all_configs_result = Result(
+        [(config.id, config.name) for config in all_configs],
+        False,
+        "All OSX Configuration " "Profiles",
+    )
 
-    unscoped_configs = [(config.id, config.name) for config in all_configs if
-                        config.findtext("scope/all_computers") == "false" and
-                        not config.findall("scope/computers/computer") and
-                        not config.findall("scope/computer_groups/"
-                                           "computer_group") and
-                        not config.findall("scope/buildings/building") and
-                        not config.findall("scope/departments/department")]
-    desc = ("Computer configuration profiles which are not scoped to any "
-            "computers, computer groups, buildings, departments, or to the "
-            "all_computers meta-scope.")
-    unscoped = Result(unscoped_configs, True,
-                      "Computer Configuration Profiles not Scoped", desc)
+    unscoped_configs = [
+        (config.id, config.name)
+        for config in all_configs
+        if config.findtext("scope/all_computers") == "false"
+        and not config.findall("scope/computers/computer")
+        and not config.findall("scope/computer_groups/" "computer_group")
+        and not config.findall("scope/buildings/building")
+        and not config.findall("scope/departments/department")
+    ]
+    desc = (
+        "Computer configuration profiles which are not scoped to any "
+        "computers, computer groups, buildings, departments, or to the "
+        "all_computers meta-scope."
+    )
+    unscoped = Result(
+        unscoped_configs, True, "Computer Configuration Profiles not Scoped", desc
+    )
     unscoped_cruftiness = calculate_cruft(unscoped_configs, all_configs)
-
-
-    report = Report("Computer Configuration Profile",
-                    [unscoped, all_configs_result],
-                    "Computer Configuration Profile Report",
-                    {"Cruftiness": {}})
-    report.metadata["Cruftiness"]["Unscoped Profile Cruftiness"] = (
-        get_cruft_strings(unscoped_cruftiness))
+    report = Report(
+        "Computer Configuration Profile",
+        [unscoped, all_configs_result],
+        "Computer Configuration Profile Report",
+        {"Cruftiness": {}},
+    )
+    report.metadata["Cruftiness"]["Unscoped Profile Cruftiness"] = get_cruft_strings(
+        unscoped_cruftiness
+    )
 
     return report
 
@@ -1172,40 +1254,50 @@ def build_md_config_profiles_report(**kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
-    all_configs = (
-        jss_connection.MobileDeviceConfigurationProfile(["general", "scope"]).retrieve_all()
-        )
+    all_configs = jss_connection.MobileDeviceConfigurationProfile(
+        ["general", "scope"]
+    ).retrieve_all()
     if not all_configs:
-        return Report("Mobile Device Configuration Profile", [],
-                      "Mobile Device Configuration Profile Report", {})
-    all_configs_result = Result([(config.id, config.name) for config in
-                                 all_configs], False, "All iOS Configuration "
-                                "Profiles")
-    unscoped_configs = [(config.id, config.name) for config in all_configs if
-                        config.findtext("scope/all_mobile_devices") ==
-                        "false" and not
-                        config.findall("scope/mobile_devices/mobile_device")
-                        and not config.findall(
-                            "scope/mobile_device_groups/mobile_device_group")
-                        and not config.findall("scope/jss_users/user") and
-                        not config.findall(
-                            "scope/jss_user_groups/user_group")
-                        and not config.findall("scope/buildings/building") and
-                        not config.findall("scope/departments/department")]
-    desc = ("Mobile device configuration profiles which are not scoped to any "
-            "devices, device groups, users, user groups, buildings, "
-            "departments, or to the all_mobile_devices meta-scope.")
-    unscoped = Result(unscoped_configs, True,
-                      "Mobile Device Configuration Profiles not Scoped", desc)
+        return Report(
+            "Mobile Device Configuration Profile",
+            [],
+            "Mobile Device Configuration Profile Report",
+            {},
+        )
+    all_configs_result = Result(
+        [(config.id, config.name) for config in all_configs],
+        False,
+        "All iOS Configuration " "Profiles",
+    )
+    unscoped_configs = [
+        (config.id, config.name)
+        for config in all_configs
+        if config.findtext("scope/all_mobile_devices") == "false"
+        and not config.findall("scope/mobile_devices/mobile_device")
+        and not config.findall("scope/mobile_device_groups/mobile_device_group")
+        and not config.findall("scope/jss_users/user")
+        and not config.findall("scope/jss_user_groups/user_group")
+        and not config.findall("scope/buildings/building")
+        and not config.findall("scope/departments/department")
+    ]
+    desc = (
+        "Mobile device configuration profiles which are not scoped to any "
+        "devices, device groups, users, user groups, buildings, "
+        "departments, or to the all_mobile_devices meta-scope."
+    )
+    unscoped = Result(
+        unscoped_configs, True, "Mobile Device Configuration Profiles not Scoped", desc
+    )
     unscoped_cruftiness = calculate_cruft(unscoped_configs, all_configs)
-
-
-    report = Report("Mobile Device Configuration Profile",
-                    [unscoped, all_configs_result],
-                    "Mobile Device Configuration Profile Report",
-                    {"Cruftiness": {}})
-    report.metadata["Cruftiness"]["Unscoped Profile Cruftiness"] = (
-        get_cruft_strings(unscoped_cruftiness))
+    report = Report(
+        "Mobile Device Configuration Profile",
+        [unscoped, all_configs_result],
+        "Mobile Device Configuration Profile Report",
+        {"Cruftiness": {}},
+    )
+    report.metadata["Cruftiness"]["Unscoped Profile Cruftiness"] = get_cruft_strings(
+        unscoped_cruftiness
+    )
 
     return report
 
@@ -1220,39 +1312,50 @@ def build_apps_report(**kwargs):
     # even if they don't use them.
     _ = kwargs
     jss_connection = JSSConnection.get()
-    all_apps = (
-        jss_connection.MobileDeviceApplication(["general", "scope"]).retrieve_all()
-        )
+    all_apps = jss_connection.MobileDeviceApplication(
+        ["general", "scope"]
+    ).retrieve_all()
     if not all_apps:
-        return Report("Mobile Application", [],
-                      "Mobile Device Application Report", {})
+        return Report("Mobile Application", [], "Mobile Device Application Report", {})
 
-    all_apps_result = Result([(app.id, app.name) for app in all_apps], False,
-                             "All Mobile Device Applications")
+    all_apps_result = Result(
+        [(app.id, app.name) for app in all_apps],
+        False,
+        "All Mobile Device Applications",
+    )
     # Find apps not scoped anywhere.
-    unscoped_apps = [(app.id, app.name) for app in all_apps if
-                     app.findtext("scope/all_mobile_devices") == "false" and
-                     app.findtext("scope/all_jss_users") == "false" and not
-                     app.findall("scope/mobile_devices/mobile_device") and
-                     not app.findall(
-                         "scope/mobile_device_groups/mobile_device_group") and
-                     app.findall("scope/jss_users/user") and
-                     not app.findall(
-                         "scope/jss_user_groups/user_group") and
-                     not app.findall("scope/buildings/building") and not
-                     app.findall("scope/departments/department")]
-    desc = ("Mobile Applications which are not scoped to any "
-            "devices, device groups, users, user groups, buildings, "
-            "departments, or to the all_mobile_devices or all_jss_users "
-            "meta-scopes.")
-    unscoped = Result(unscoped_apps, True,
-                      "Mobile Device Applications not Scoped", desc)
+    unscoped_apps = [
+        (app.id, app.name)
+        for app in all_apps
+        if app.findtext("scope/all_mobile_devices") == "false"
+        and app.findtext("scope/all_jss_users") == "false"
+        and not app.findall("scope/mobile_devices/mobile_device")
+        and not app.findall("scope/mobile_device_groups/mobile_device_group")
+        and app.findall("scope/jss_users/user")
+        and not app.findall("scope/jss_user_groups/user_group")
+        and not app.findall("scope/buildings/building")
+        and not app.findall("scope/departments/department")
+    ]
+    desc = (
+        "Mobile Applications which are not scoped to any "
+        "devices, device groups, users, user groups, buildings, "
+        "departments, or to the all_mobile_devices or all_jss_users "
+        "meta-scopes."
+    )
+    unscoped = Result(
+        unscoped_apps, True, "Mobile Device Applications not Scoped", desc
+    )
     unscoped_cruftiness = calculate_cruft(unscoped_apps, all_apps)
 
-    report = Report("Mobile Application", [unscoped, all_apps_result],
-                    "Mobile Device Application Report", {"Cruftiness": {}})
-    report.metadata["Cruftiness"]["Unscoped App Cruftiness"] = (
-        get_cruft_strings(unscoped_cruftiness))
+    report = Report(
+        "Mobile Application",
+        [unscoped, all_apps_result],
+        "Mobile Device Application Report",
+        {"Cruftiness": {}},
+    )
+    report.metadata["Cruftiness"]["Unscoped App Cruftiness"] = get_cruft_strings(
+        unscoped_cruftiness
+    )
 
     # Find out-of-date and discontinued apps.
     out_of_date = {}
@@ -1267,28 +1370,34 @@ def build_apps_report(**kwargs):
             version_parser.feed(page)
             current_version = version_parser.version
             if app.findtext("general/version") != current_version:
-                out_of_date[app.name] = (app.findtext("general/version"),
-                                         current_version)
+                out_of_date[app.name] = (
+                    app.findtext("general/version"),
+                    current_version,
+                )
             if current_version == "Version Not Found":
                 discontinued.append((app.id, app.name))
 
     report.metadata["Out-of-Date Apps"] = {}
-    report.metadata["Out-of-Date Apps"]["Out-of-Date Apps"] = (
-        get_out_of_date_strings(out_of_date))
+    report.metadata["Out-of-Date Apps"]["Out-of-Date Apps"] = get_out_of_date_strings(
+        out_of_date
+    )
 
-    desc = ("Mobile applications which are no longer available from the Apple "
-            " App Store.")
-    discontinued_result = Result(discontinued, True,
-                                 "Apps No Longer Available", desc)
+    desc = (
+        "Mobile applications which are no longer available from the Apple "
+        " App Store."
+    )
+    discontinued_result = Result(discontinued, True, "Apps No Longer Available", desc)
     report.results.append(discontinued_result)
 
     out_of_date_cruftiness = calculate_cruft(out_of_date, all_apps)
-    report.metadata["Cruftiness"]["Out-of-Date App Cruftiness"] = (
-        get_cruft_strings(out_of_date_cruftiness))
+    report.metadata["Cruftiness"]["Out-of-Date App Cruftiness"] = get_cruft_strings(
+        out_of_date_cruftiness
+    )
 
     discontinued_cruftiness = calculate_cruft(discontinued, all_apps)
-    report.metadata["Cruftiness"]["Discontinued App Cruftiness"] = (
-        get_cruft_strings(discontinued_cruftiness))
+    report.metadata["Cruftiness"]["Discontinued App Cruftiness"] = get_cruft_strings(
+        discontinued_cruftiness
+    )
 
     return report
 
@@ -1318,8 +1427,7 @@ def get_nested_groups(groups, full_groups):
         if nested_groups_names:
             # Function needs full objects, and criteria only specify
             # the name, so we need to "convert" names to full objects.
-            nested_groups = get_full_groups_from_names(nested_groups_names,
-                                                       full_groups)
+            nested_groups = get_full_groups_from_names(nested_groups_names, full_groups)
             # Add the nested groups to the results.
             results.update(nested_groups)
             # Recursively look for any groups nested in the nested
@@ -1345,8 +1453,10 @@ def get_nested_groups_names(group):
     for criterion in group.findall("criteria/criterion"):
         try:
             criterion.name.text
-            if (criterion.name.text in ("Computer Group", "Mobile Device Group") and
-                criterion.search_type.text == "member of"):
+            if (
+                criterion.name.text in ("Computer Group", "Mobile Device Group")
+                and criterion.search_type.text == "member of"
+            ):
                 return_groups.append(criterion.value.text)
         except AttributeError:
             # print(criterion)
@@ -1415,12 +1525,17 @@ def get_empty_groups(full_groups):
         obj_type = ("mobile_devices", "Mobile Device")
     else:
         raise TypeError("Incorrect group type.")
-    groups_with_no_members = {(group.id, group.name) for group in full_groups
-                              if group.findtext("%s/size" % obj_type[0]) ==
-                              "0"}
-    return Result(groups_with_no_members, True,
-                  "Empty %s Groups" % obj_type[1],
-                  "%s groups which have no members." % obj_type[1])
+    groups_with_no_members = {
+        (group.id, group.name)
+        for group in full_groups
+        if group.findtext("%s/size" % obj_type[0]) == "0"
+    }
+    return Result(
+        groups_with_no_members,
+        True,
+        "Empty %s Groups" % obj_type[1],
+        "%s groups which have no members." % obj_type[1],
+    )
 
 
 def get_no_criteria_groups(full_groups):
@@ -1439,12 +1554,18 @@ def get_no_criteria_groups(full_groups):
         obj_type = ("mobile_devices", "Mobile Device")
     else:
         raise TypeError("Incorrect group type.")
-    groups_with_no_criteria = {(group.id, group.name) for group in full_groups
-                               if group.findtext("is_smart") == "true" and
-                               int(group.findtext('criteria/size')) == 0}
-    return Result(groups_with_no_criteria, True,
-                  "No Criteria %s Groups" % obj_type[1],
-                  "%s groups which have no criteria." % obj_type[1])
+    groups_with_no_criteria = {
+        (group.id, group.name)
+        for group in full_groups
+        if group.findtext("is_smart") == "true"
+        and int(group.findtext("criteria/size")) == 0
+    }
+    return Result(
+        groups_with_no_criteria,
+        True,
+        "No Criteria %s Groups" % obj_type[1],
+        "%s groups which have no criteria." % obj_type[1],
+    )
 
 
 def has_no_group_membership(device):
@@ -1463,20 +1584,27 @@ def has_no_group_membership(device):
     Returns:
         Bool.
     """
-    excluded_groups = ("All Managed Clients",
-                       "All Managed Servers",
-                       "All Managed iPads",
-                       "All Managed iPhones",
-                       "All Managed iPod touches")
+    excluded_groups = (
+        "All Managed Clients",
+        "All Managed Servers",
+        "All Managed iPads",
+        "All Managed iPhones",
+        "All Managed iPod touches",
+    )
     if isinstance(device, jss.Computer):
         xpath = "groups_accounts/computer_group_memberships/group"
-        group_membership = [group.text for group in device.findall(xpath) if
-                            not group.text in excluded_groups]
+        group_membership = [
+            group.text
+            for group in device.findall(xpath)
+            if not group.text in excluded_groups
+        ]
     elif isinstance(device, jss.MobileDevice):
         xpath = "mobile_device_groups/mobile_device_group"
-        group_membership = [group.findtext("name") for group in
-                            device.findall(xpath) if not group.findtext("name")
-                            in excluded_groups]
+        group_membership = [
+            group.findtext("name")
+            for group in device.findall(xpath)
+            if not group.findtext("name") in excluded_groups
+        ]
     else:
         raise TypeError
 
@@ -1510,7 +1638,7 @@ def print_output(report, verbose=False):
     parser = build_argparser()
     args = parser.parse_args()
 
-    # set emoji
+    #  set emoji
     if not args.kawaii:
         SPRUCE = "*"
     elif sys.version_info[0] < 3:
@@ -1529,15 +1657,17 @@ def print_output(report, verbose=False):
             if not result.include_in_non_verbose and not verbose:
                 continue
             else:
-                print("\n%s  %s (%i)" % (
-                    SPRUCE, result.heading, len(result.results)))
+                print("\n%s  %s (%i)" % (SPRUCE, result.heading, len(result.results)))
                 if result.description:
-                    print(textwrap.fill(result.description,
-                                        initial_indent=indent_size,
-                                        subsequent_indent=indent_size))
+                    print(
+                        textwrap.fill(
+                            result.description,
+                            initial_indent=indent_size,
+                            subsequent_indent=indent_size,
+                        )
+                    )
                 print("")
-                for line in sorted(result.results,
-                                key=lambda s: s[1].upper().strip()):
+                for line in sorted(result.results, key=lambda s: s[1].upper().strip()):
                     if line[1].strip() == "":
                         text = "(***NO NAME: ID is %s***)" % line[0]
                     else:
@@ -1597,7 +1727,6 @@ def get_cruftmoji(percentage):
         CACTUS = "\N{cactus}"
         POO = "\N{pile of poo}"
 
-
     # Handle command line arguments.
     parser = build_argparser()
     args = parser.parse_args()
@@ -1614,25 +1743,27 @@ def get_cruftmoji(percentage):
             "Video Cassette",
             "Cactus",
             "Smiling Poo",
-            "Three steaming piles of poo"]
+            "Three steaming piles of poo",
+        ]
         return str(level[int(percentage * 10)])
     else:
         level = [
             # Master
-            "%s %s %s %s %s %s %s" % (CROSSED_ARMS, BEER, PIZZA, 
-                ALIEN, PIZZA, BEER, CROSSED_ARMS),
+            "%s %s %s %s %s %s %s"
+            % (CROSSED_ARMS, BEER, PIZZA, ALIEN, PIZZA, BEER, CROSSED_ARMS),
             # Snakes on a Plane
             "%s %s %s" % (SNAKE, SNAKE, PLANE),
             # Furry Hat Pizza Party
             "%s %s %s" % (PIZZA, GUARD, PIZZA),
-            GHOST, # Ghost
-            BOMB, # The Bomb
-            "%s %s" % (POODLE, WIND), # Poodle Fart
-            SKULL, # Skull
-            VHS, # VHS Cassette
-            CACTUS, # Cactus
-            POO, # Smiling Poo
-            "%s %s %s" % (POO, POO, POO)] # Smiling Poo (For 100%)
+            GHOST,  # Ghost
+            BOMB,  # The Bomb
+            "%s %s" % (POODLE, WIND),  # Poodle Fart
+            SKULL,  # Skull
+            VHS,  # VHS Cassette
+            CACTUS,  # Cactus
+            POO,  # Smiling Poo
+            "%s %s %s" % (POO, POO, POO),
+        ]  # Smiling Poo (For 100%)
         if sys.version_info[0] < 3:
             return level[int(percentage * 10)].decode("utf-8")
         else:
@@ -1719,8 +1850,9 @@ def get_histogram_strings(data, padding=0):
     result = []
     for key, val in data.items():
         preamble = "{:>{max_key}} ({:>{max_val}}): ".format(
-            key, val, max_key=max_key_width, max_val=max_val_width)
-        #percentage = float(val) / osx_clients
+            key, val, max_key=max_key_width, max_val=max_val_width
+        )
+        # percentage = float(val) / osx_clients
         percentage = float(val) / max_value
         histogram_bar = int(percentage * histogram_width + 1) * hist_char
         try:
@@ -1751,11 +1883,17 @@ def get_out_of_date_strings(data):
         max_val1_width = max([len(str(val[0])) for val in list(data.values())])
         max_val2_width = max([len(str(val[1])) for val in list(data.values())])
         for key, val in data.items():
-            output_string = ("{:>{max_key}} JSS Version:{:>{max_val1}} App "
-                             "Store Version: {:>{max_val2}}".format(
-                                 key, val[0], val[1], max_key=max_key_width,
-                                 max_val1=max_val1_width,
-                                 max_val2=max_val2_width))
+            output_string = (
+                "{:>{max_key}} JSS Version:{:>{max_val1}} App "
+                "Store Version: {:>{max_val2}}".format(
+                    key,
+                    val[0],
+                    val[1],
+                    max_key=max_key_width,
+                    max_val1=max_val1_width,
+                    max_val2=max_val2_width,
+                )
+            )
             result.append(output_string)
     return result
 
@@ -1768,8 +1906,9 @@ def add_output_metadata(root):
     """
     jss_connection = JSSConnection.get()
     report_date = ET.SubElement(root, "ReportDate")
-    report_date.text = datetime.datetime.strftime(datetime.datetime.now(),
-                                                  "%Y%m%d-%H%M%S")
+    report_date.text = datetime.datetime.strftime(
+        datetime.datetime.now(), "%Y%m%d-%H%M%S"
+    )
     report_server = ET.SubElement(root, "Server")
     report_server.text = jss_connection.base_url
     api_user = ET.SubElement(root, "APIUser")
@@ -1796,8 +1935,7 @@ def add_report_output(root, report):
     for result in report.results:
         if not result.include_in_non_verbose:
             continue
-        subreport_element = ET.SubElement(report_element,
-                                          tagify(result.heading))
+        subreport_element = ET.SubElement(report_element, tagify(result.heading))
         subreport_element.attrib["length"] = str(len(result))
         desc = ET.SubElement(subreport_element, "Description")
         desc.text = result.description
@@ -1809,18 +1947,18 @@ def add_report_output(root, report):
     # Metadata
     for metadata, val in report.metadata.items():
         metadata_element = ET.SubElement(report_element, tagify(metadata))
-        #subreport_element.attrib["length"] = str(len(result))
+        # subreport_element.attrib["length"] = str(len(result))
         for submeta, submeta_val in val.items():
             item = ET.SubElement(metadata_element, tagify(submeta))
             for line in submeta_val:
                 value = ET.SubElement(item, "Value")
-                #value.text = line.encode("ascii", errors="replace").strip()
+                # value.text = line.encode("ascii", errors="replace").strip()
                 value.text = line.strip()
 
 
 def tagify(text):
     """Make a string appropriate for XML tag names."""
-    if "(" in  text:
+    if "(" in text:
         text = text.split("(")[0]
     return text.title().replace(" ", "")
 
@@ -1833,7 +1971,7 @@ def indent(elem, level=0, more_sibs=False):
 
     """
     i = "\n"
-    pad = '    '
+    pad = "    "
     if level:
         i += (level - 1) * pad
     num_kids = len(elem)
@@ -1846,7 +1984,7 @@ def indent(elem, level=0, more_sibs=False):
         for kid in elem:
             if kid.tag == "data":
                 kid.text = "*DATA*"
-            indent(kid, level+1, count < num_kids - 1)
+            indent(kid, level + 1, count < num_kids - 1)
             count += 1
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
@@ -1862,27 +2000,32 @@ def indent(elem, level=0, more_sibs=False):
 def build_argparser():
     """Create our argument parser."""
     parser = argparse.ArgumentParser(
-        description=DESCRIPTION,
-        formatter_class=argparse.RawDescriptionHelpFormatter)
+        description=DESCRIPTION, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     # Global Args
-    phelp = ("Include a list of all objects and used objects in addition to "
-             "unused objects in reports.")
+    phelp = (
+        "Include a list of all objects and used objects in addition to "
+        "unused objects in reports."
+    )
     parser.add_argument("-v", "--verbose", help=phelp, action="store_true")
-    phelp = ("Show cute emoji in output and reports.")
+    phelp = "Show cute emoji in output and reports."
     parser.add_argument("--kawaii", help=phelp, action="store_true")
-    phelp = ("For computer and mobile device reports, the number of "
-             "days since the last check-in to consider device "
-             "out-of-date.")
+    phelp = (
+        "For computer and mobile device reports, the number of "
+        "days since the last check-in to consider device "
+        "out-of-date."
+    )
     parser.add_argument("--check_in_period", help=phelp)
-    phelp = ("Path to preference file.")
+    phelp = "Path to preference file."
     parser.add_argument("--prefs", help=phelp)
     # General Reporting Args
     general_group = parser.add_argument_group("General Reporting Arguments")
-    phelp = ("Output results to OFILE, in plist format (also usable as "
-             "input to the --remove option).")
+    phelp = (
+        "Output results to OFILE, in plist format (also usable as "
+        "input to the --remove option)."
+    )
     general_group.add_argument("-o", "--ofile", help=phelp)
-    phelp = ("Generate all reports. With no other arguments, this is "
-             "the default.")
+    phelp = "Generate all reports. With no other arguments, this is " "the default."
     general_group.add_argument("-a", "--all", help=phelp, action="store_true")
 
     # Computers
@@ -1890,11 +2033,11 @@ def build_argparser():
     phelp = "Generate computer report."
     group.add_argument("-c", "--computers", help=phelp, action="store_true")
     phelp = "Generate unused computer-groups report (Static and Smart)."
-    group.add_argument("-g", "--computer_groups", help=phelp,
-                       action="store_true")
+    group.add_argument("-g", "--computer_groups", help=phelp, action="store_true")
     phelp = "Generate unused computer extension attribute report."
-    group.add_argument("-e", "--computer_extension_attributes",
-                       help=phelp, action="store_true")
+    group.add_argument(
+        "-e", "--computer_extension_attributes", help=phelp, action="store_true"
+    )
     phelp = "Generate unused package report."
     group.add_argument("-p", "--packages", help=phelp, action="store_true")
     phelp = "Generate unused printer report."
@@ -1904,31 +2047,34 @@ def build_argparser():
     phelp = "Generate unused policy report."
     group.add_argument("-t", "--policies", help=phelp, action="store_true")
     phelp = "Generate unused computer configuration profile report."
-    group.add_argument("-u", "--computer_configuration_profiles", help=phelp,
-                       action="store_true")
+    group.add_argument(
+        "-u", "--computer_configuration_profiles", help=phelp, action="store_true"
+    )
 
     # Mobile Devices
     md_group = parser.add_argument_group("Mobile Device Reporting Arguments")
     phelp = "Generate mobile device report."
-    md_group.add_argument("-d", "--mobile_devices", help=phelp,
-                          action="store_true")
+    md_group.add_argument("-d", "--mobile_devices", help=phelp, action="store_true")
     phelp = "Generate unused mobile-device-groups report (Static and Smart)."
-    md_group.add_argument("-r", "--mobile_device_groups", help=phelp,
-                          action="store_true")
+    md_group.add_argument(
+        "-r", "--mobile_device_groups", help=phelp, action="store_true"
+    )
     phelp = "Generate unused mobile-device-profiles report."
-    md_group.add_argument("-m", "--mobile_device_configuration_profiles",
-                          help=phelp, action="store_true")
+    md_group.add_argument(
+        "-m", "--mobile_device_configuration_profiles", help=phelp, action="store_true"
+    )
     phelp = "Generate out-of-date and unused mobile apps report."
-    md_group.add_argument("-b", "--apps",
-                          help=phelp, action="store_true")
+    md_group.add_argument("-b", "--apps", help=phelp, action="store_true")
 
     # Removal Args
     removal_group = parser.add_argument_group("Removal Arguments")
-    phelp = ("Remove all objects specified in supplied XML file REMOVE from "
-             "the subelement 'Removals'. If this option is used, all "
-             "reporting is skipped. The input file is most easily created by "
-             "editing the results of a report done with the -o/--ofile "
-             "option.")
+    phelp = (
+        "Remove all objects specified in supplied XML file REMOVE from "
+        "the subelement 'Removals'. If this option is used, all "
+        "reporting is skipped. The input file is most easily created by "
+        "editing the results of a report done with the -o/--ofile "
+        "option."
+    )
     removal_group.add_argument("--remove", help=phelp)
 
     return parser
@@ -1949,54 +2095,72 @@ def run_reports(args):
     # Define the types of reports we can accept.
     # TODO: Roll this data structure into the Reports class.
     reports = {}
-    reports["computers"] = {"heading": "Computer Report",
-                            "func": build_computers_report,
-                            "report": None}
-    reports["mobile_devices"] = {"heading": "Mobile Device Report",
-                                 "func": build_mobile_devices_report,
-                                 "report": None}
-    reports["computer_groups"] = {"heading": "Computer Groups Report",
-                                  "func": build_computer_groups_report,
-                                  "report": None}
+    reports["computers"] = {
+        "heading": "Computer Report",
+        "func": build_computers_report,
+        "report": None,
+    }
+    reports["mobile_devices"] = {
+        "heading": "Mobile Device Report",
+        "func": build_mobile_devices_report,
+        "report": None,
+    }
+    reports["computer_groups"] = {
+        "heading": "Computer Groups Report",
+        "func": build_computer_groups_report,
+        "report": None,
+    }
     reports["computer_extension_attributes"] = {
         "heading": "Computer Extension Attributes Report",
         "func": build_computer_ea_report,
-        "report": None}
-    reports["packages"] = {"heading": "Package Report",
-                           "func": build_packages_report,
-                           "report": None}
-    reports["printers"] = {"heading": "Printers Report",
-                           "func": build_printers_report,
-                           "report": None}
-    reports["scripts"] = {"heading": "Scripts Report",
-                          "func": build_scripts_report,
-                          "report": None}
-    reports["policies"] = {"heading": "Policy Report",
-                           "func": build_policies_report,
-                           "report": None}
+        "report": None,
+    }
+    reports["packages"] = {
+        "heading": "Package Report",
+        "func": build_packages_report,
+        "report": None,
+    }
+    reports["printers"] = {
+        "heading": "Printers Report",
+        "func": build_printers_report,
+        "report": None,
+    }
+    reports["scripts"] = {
+        "heading": "Scripts Report",
+        "func": build_scripts_report,
+        "report": None,
+    }
+    reports["policies"] = {
+        "heading": "Policy Report",
+        "func": build_policies_report,
+        "report": None,
+    }
     reports["computer_configuration_profiles"] = {
         "heading": "Computer Configuration Profile Report",
         "func": build_config_profiles_report,
-        "report": None}
+        "report": None,
+    }
 
     reports["mobile_device_configuration_profiles"] = {
         "heading": "Mobile Device Configuration Profile Report",
         "func": build_md_config_profiles_report,
-        "report": None}
+        "report": None,
+    }
     reports["mobile_device_groups"] = {
         "heading": "Mobile Device Group Report",
         "func": build_device_groups_report,
-        "report": None}
+        "report": None,
+    }
     reports["apps"] = {
         "heading": "Mobile Apps",
         "func": build_apps_report,
-        "report": None}
+        "report": None,
+    }
 
     args_dict = vars(args)
     # Build a list of report key names, requested by user, which are
     # tightly coupled, despite the smell, to arg names.
-    requested_reports = [report for report in reports if
-                         args_dict[report]]
+    requested_reports = [report for report in reports if args_dict[report]]
 
     # If either the --all option has been provided, OR none of the
     # other reports options have been specified, assume user wants all
@@ -2018,8 +2182,7 @@ def run_reports(args):
     results = []
     for report_name in requested_reports:
         report_dict = reports[report_name]
-        print("%s  Building: %s... %s" % (SPRUCE, report_dict["heading"],
-                                          SPRUCE))
+        print("%s  Building: %s... %s" % (SPRUCE, report_dict["heading"], SPRUCE))
         func = reports[report_name]["func"]
         results.append(func(**args_dict))
 
@@ -2038,10 +2201,11 @@ def run_reports(args):
     if args.ofile:
         indent(output_xml)
         tree = ET.ElementTree(output_xml)
-        #print(ET.tostring(output_xml, encoding="UTF-8"))
+        # print(ET.tostring(output_xml, encoding="UTF-8"))
         try:
-            tree.write(os.path.expanduser(args.ofile), encoding="UTF-8",
-                    xml_declaration=True)
+            tree.write(
+                os.path.expanduser(args.ofile), encoding="UTF-8", xml_declaration=True
+            )
             print("%s  Wrote output to %s" % (SPRUCE, args.ofile))
         except IOError:
             print("Error writing output to %s" % args.ofile)
@@ -2071,19 +2235,19 @@ def remove(removal_tree):
     jss_connection = JSSConnection.get()
     # Tag map is a dictionary mapping our Element tags to JSS factory
     # methods.
-    tag_map = {"Computer": jss_connection.Computer,
-               "ComputerGroup": jss_connection.ComputerGroup,
-               "Package": jss_connection.Package,
-               "Printer": jss_connection.Printer,
-               "Script": jss_connection.Script,
-               "Policy": jss_connection.Policy,
-               "ComputerConfigurationProfile":
-                   jss_connection.OSXConfigurationProfile,
-               "MobileDevice": jss_connection.MobileDevice,
-               "MobileDeviceGroup": jss_connection.MobileDeviceGroup,
-               "MobileDeviceConfigurationProfile":
-                   jss_connection.MobileDeviceConfigurationProfile,
-               "MobileApplication": jss_connection.MobileDeviceApplication}
+    tag_map = {
+        "Computer": jss_connection.Computer,
+        "ComputerGroup": jss_connection.ComputerGroup,
+        "Package": jss_connection.Package,
+        "Printer": jss_connection.Printer,
+        "Script": jss_connection.Script,
+        "Policy": jss_connection.Policy,
+        "ComputerConfigurationProfile": jss_connection.OSXConfigurationProfile,
+        "MobileDevice": jss_connection.MobileDevice,
+        "MobileDeviceGroup": jss_connection.MobileDeviceGroup,
+        "MobileDeviceConfigurationProfile": jss_connection.MobileDeviceConfigurationProfile,
+        "MobileApplication": jss_connection.MobileDeviceApplication,
+    }
 
     root = removal_tree.getroot()
     removals = root.find("Removals")
@@ -2092,8 +2256,10 @@ def remove(removal_tree):
     # in addition to the objects being deleted (i.e. they handle it).
     # AFP/SMB DP's on the other hand do, so first test to see if any
     # File Share Distribution Points exist.
-    if (hasattr(jss_connection.distribution_points, "dp_info") and
-            jss_connection.distribution_points.dp_info):
+    if (
+        hasattr(jss_connection.distribution_points, "dp_info")
+        and jss_connection.distribution_points.dp_info
+    ):
 
         # See if we are trying to delete any packages or scripts.
         # JSS's which have been migrated store their scripts in the
@@ -2103,8 +2269,9 @@ def remove(removal_tree):
         # if not jss_connection.jss_migrated:
         #     needs_file_removal.append("Script")
 
-        file_type_removals = any([removal.tag for removal in removals if
-                                  removal.tag in needs_file_removal])
+        file_type_removals = any(
+            [removal.tag for removal in removals if removal.tag in needs_file_removal]
+        )
 
         if file_type_removals:
             # Mount the shares now in preparation.
@@ -2115,8 +2282,9 @@ def remove(removal_tree):
     # Remove duplicate items.
     removals_set = ET.Element("Removals")
     for item in removals:
-        if not item.attrib["id"] in [obj.get("id") for obj in
-                                     removals_set.findall(item.tag)]:
+        if not item.attrib["id"] in [
+            obj.get("id") for obj in removals_set.findall(item.tag)
+        ]:
             removals_set.append(item)
 
     for item in removals_set:
@@ -2131,15 +2299,23 @@ def remove(removal_tree):
             except jss.GetError as error:
                 # Object probably no longer exists.
                 if hasattr(error, "status_code"):
-                    print ("%s object %s with ID %s is not available or does "
-                           "not exist.\nStatus Code: %s\nError: %s" % (
-                               item.tag, item.text, item.attrib["id"],
-                               error.status_code, error.message))
+                    print(
+                        "%s object %s with ID %s is not available or does "
+                        "not exist.\nStatus Code: %s\nError: %s"
+                        % (
+                            item.tag,
+                            item.text,
+                            item.attrib["id"],
+                            error.status_code,
+                            error.message,
+                        )
+                    )
                 else:
-                    print ("%s object %s with ID %s is not available or does "
-                           "not exist.\nError: %s" % (
-                               item.tag, item.text, item.attrib["id"],
-                               error.message))
+                    print(
+                        "%s object %s with ID %s is not available or does "
+                        "not exist.\nError: %s"
+                        % (item.tag, item.text, item.attrib["id"], error.message)
+                    )
                 continue
 
         # Try to delete the item.
@@ -2147,10 +2323,17 @@ def remove(removal_tree):
             obj.delete()
             print("%s object %s: %s deleted." % (item.tag, obj.id, obj.name))
         except jss.DeleteError as error:
-            print("%s object %s with ID %s failed to delete.\n"
-                   "Status Code:%s Error: %s" % (
-                       item.tag, item.text, item.attrib["id"],
-                       error.status_code, error.message))
+            print(
+                "%s object %s with ID %s failed to delete.\n"
+                "Status Code:%s Error: %s"
+                % (
+                    item.tag,
+                    item.text,
+                    item.attrib["id"],
+                    error.status_code,
+                    error.message,
+                )
+            )
             continue
 
         # If the item is a Package, or a Script on a non-migrated
@@ -2171,8 +2354,10 @@ def remove(removal_tree):
                 jss_connection.distribution_points.delete(filename)
                 print("%s file %s deleted." % (item.tag, obj.name))
             except OSError as error:
-                print("Unable to delete %s: %s with error: %s" %
-                       (item.tag, filename, error))
+                print(
+                    "Unable to delete %s: %s with error: %s"
+                    % (item.tag, filename, error)
+                )
             except jss.GetError:
                 # User has a DistributionServer of some kind and
                 # A.) The db object has already been deleted above
@@ -2184,8 +2369,10 @@ def remove(removal_tree):
 
 def check_with_user():
     jss_connection = JSSConnection.get()
-    response = input("Are you sure you want to continue deleting objects "
-                         "from %s? (Y or N): " % jss_connection.base_url)
+    response = input(
+        "Are you sure you want to continue deleting objects "
+        "from %s? (Y or N): " % jss_connection.base_url
+    )
     if response.strip().upper() in ["Y", "YES"]:
         result = True
     else:
@@ -2195,13 +2382,14 @@ def check_with_user():
 
 def connect(args):
     """make the connection to the JSS"""
-
     # Allow override to prefs file
     if args.prefs:
         if os.path.exists(os.path.expanduser(args.prefs)):
             user_supplied_prefs = Plist(args.prefs)
             connection = map_jssimporter_prefs(user_supplied_prefs)
             print("Preferences used: %s" % args.prefs)
+        else:
+            sys.exit("Prefs file {} not found!".format(args.prefs))
     # Otherwise, get AutoPkg configuration settings for JSSImporter,
     # and barring that, get python-jss settings.
     elif os.path.exists(os.path.expanduser(AUTOPKG_PREFERENCES)):
@@ -2213,26 +2401,25 @@ def connect(args):
             connection = jss.JSSPrefs()
             print("Preferences used: %s" % PYTHON_JSS_PREFERENCES)
         except jss.exceptions.JSSPrefsMissingFileError:
-            sys.exit("No python-jss or AutoPKG/JSSImporter configuration "
-                     "file!")
-
+            sys.exit("No python-jss or AutoPKG/JSSImporter configuration " "file!")
     JSSConnection.setup(connection)
+
 
 def main():
     """Commandline processing."""
-
     # Ensure we have the right version of python-jss.
     python_jss_version = StrictVersion(PYTHON_JSS_VERSION)
     if python_jss_version < REQUIRED_PYTHON_JSS_VERSION:
-        sys.exit("Requires python-jss version: %s. Installed: %s\n"
-                 "Please update" % (REQUIRED_PYTHON_JSS_VERSION,
-                                    python_jss_version))
+        sys.exit(
+            "Requires python-jss version: %s. Installed: %s\n"
+            "Please update" % (REQUIRED_PYTHON_JSS_VERSION, python_jss_version)
+        )
 
     # Handle command line arguments.
     parser = build_argparser()
     args = parser.parse_args()
 
-    # make the connection to the JSS
+    #  make the connection to the JSS
     connect(args)
 
     # Determine actions based on supplied arguments.
