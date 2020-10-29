@@ -9,7 +9,7 @@ Spruce is a command line tool that looks for objects on your Jamf Pro server whi
 **For details on how to use Spruce, please visit our [Wiki](https://github.com/jssimporter/Spruce/wiki).**
 
 **IMPORTANT:**
-Spruce 3 requires python-jss 2.1.0 and python3, with the `Foundation` module. The simplest way to achieve this is to install AutoPkg 2.0 and JSSImporter 1.1.0, and then run Spruce using the python that is supplied with AutoPkg:
+Spruce 3 requires python-jss 2.1.0 and python3, with the `Foundation` module. The simplest way to achieve this is to install [AutoPkg](https://github.com/autopkg/autopkg/releases/) 2.0 and [JSSImporter](https://github.com/jssimporter/JSSImporter/releases) 1.1.0, and then run Spruce using the python that is supplied with AutoPkg:
 
     /usr/local/autopkg/python spruce.py -h
 
