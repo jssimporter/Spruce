@@ -987,7 +987,7 @@ def build_computer_ea_report(**kwargs):
     """Report on computer extension attributes usage.
 
     Looks for computer extension attributes not being used as criteria in any
-    smart groups. This does not mean they neccessarily are in-need-of-deletion.
+    smart groups or advanced searches. This does not mean they neccessarily are in-need-of-deletion.
 
     Returns:
         A Report object.
@@ -1008,15 +1008,19 @@ def build_computer_ea_report(**kwargs):
 
     # Build results for extension attributes which aren't used in criteria.
     all_groups = jss_connection.ComputerGroup().retrieve_all()
+    all_advanced_computer_searches = jss_connection.AdvancedComputerSearch().retrieve_all()
+    all_criteria = (all_groups + all_advanced_computer_searches)
     used_criteria = []
-    for group in all_groups:
-        criteria_names = get_all_criteria_names(group)
+
+    # get fully unused
+    for criteria in all_criteria:
+        criteria_names = get_all_criteria_names(criteria)
         for criteria_name in criteria_names:
             if criteria_name not in used_criteria:
                 used_criteria.append(criteria_name)
 
     unused_eas = [ea for ea in all_eas if ea[1] not in used_criteria]
-    desc = "All extension attributes which are not used in computer group criteria."
+    desc = "All extension attributes which are not used in computer groups, or any advanced searches"
     unused = Result(unused_eas, True, "Unused Computer Extension Attributes", desc)
     unused_cruftiness = calculate_cruft(unused_eas, all_eas)
 
