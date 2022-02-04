@@ -1,4 +1,4 @@
-# Spruce 3
+# Spruce is no longer maintained
 
 ![Spruce 3 - Bruce Lee](http://cbsnews1.cbsistatic.com/hub/i/2014/03/08/2653257f-848f-4e81-8db9-b9a8bfdcd00e/bruce-lee-big-boss-47.jpg)
 
